@@ -141,7 +141,7 @@
     <div id="sys-panel" class="panel">
         <div class="panel-header"><div class="panel-title-row"><h2>🖥️ 시스템 보드</h2><button class="close-btn-new" onclick="history.back()">✕</button></div></div>
         <h3 style="color:#ef4444; margin-top:10px;">⚠️ 현재 세계 상태</h3>
-        <textarea id="global-status-input" class="area-std auto-resize" placeholder="시간 멈춤 등" oninput="UI.autoResize(this); Store.updateRoomState('globalStatus', this.value);"></textarea>
+        <textarea id="global-status-input" class="area-std auto-resize" placeholder="부상, 회귀, 평행 세계 등" oninput="UI.autoResize(this); Store.updateRoomState('globalStatus', this.value);"></textarea>
         <h3 style="color:#a78bfa; margin-top:20px;">📝 상황 요약</h3>
         <textarea id="room-memory-input" class="area-std auto-resize" style="min-height:150px;" oninput="UI.autoResize(this); Store.updateRoomState('memory', this.value);"></textarea>
         <button class="btn-main" style="margin-top:8px;" onclick="Store.saveRoomMemory()">기억 수동 저장</button>
