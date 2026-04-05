@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>10009 시뮬레이터 2.0</title>
+    <title>10009 시뮬레이터</title>
     <meta name="theme-color" content="#0a0a0a">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
 </head>
 <body>
     <div id="overlay" onclick="UI.closeOverlay()"></div>
@@ -13,7 +14,7 @@
 
     <div id="lobby-container">
         <div class="lobby-header">
-            <h1>10009 시뮬레이터 2.0</h1>
+            <h1>10009 시뮬레이터</h1>
             <div class="lobby-tabs">
                 <div class="lobby-tab active" onclick="UI.switchTab('tab-scenarios', event)">🎬 시나리오</div>
                 <div class="lobby-tab" onclick="UI.switchTab('tab-worlds', event)">🌌 템플릿</div>
@@ -44,8 +45,20 @@
                 <option value="gemini-3.1-flash"></option>
                 <option value="gemini-3.1-pro"></option>
             </datalist>
-            <h3>🛡️ 안전 설정</h3>
-            <div id="safety-checks"></div>
+            
+            <hr style="border-color:#333; margin:20px 0;">
+            
+            <details class="acc-sec" open>
+                <summary style="color:#ef4444;">🛡️ 안전 설정 (검열)</summary>
+                <div style="margin-top:10px;">
+                    <p style="font-size:0.75rem; color:#aaa; margin-bottom:10px; line-height:1.4;">
+                        * 체크 시 해당 항목의 묘사를 <b>검열(금지)</b>합니다.<br>
+                        * 제한 없는 자유로운 출력을 원하시면 <b>모두 체크 해제</b>하세요.
+                    </p>
+                    <div id="safety-checks"></div>
+                </div>
+            </details>
+
             <hr style="border-color:#333; margin:20px 0;">
             <button class="btn-play" style="background:#444;" onclick="Store.exportData()">⬇️ 전체 백업</button>
             <button class="btn-play" style="background:#444; margin-top:10px;" onclick="document.getElementById('import-file').click()">⬆️ 데이터 복원</button>
@@ -141,7 +154,7 @@
     <div id="sys-panel" class="panel">
         <div class="panel-header"><div class="panel-title-row"><h2>🖥️ 시스템 보드</h2><button class="close-btn-new" onclick="history.back()">✕</button></div></div>
         <h3 style="color:#ef4444; margin-top:10px;">⚠️ 현재 세계 상태</h3>
-        <textarea id="global-status-input" class="area-std auto-resize" placeholder="부상, 회귀, 평행 세계 등" oninput="UI.autoResize(this); Store.updateRoomState('globalStatus', this.value);"></textarea>
+        <textarea id="global-status-input" class="area-std auto-resize" placeholder="서사의 절대 규칙이나 현재 디버프 상태 등을 적어두세요." oninput="UI.autoResize(this); Store.updateRoomState('globalStatus', this.value);"></textarea>
         <h3 style="color:#a78bfa; margin-top:20px;">📝 상황 요약</h3>
         <textarea id="room-memory-input" class="area-std auto-resize" style="min-height:150px;" oninput="UI.autoResize(this); Store.updateRoomState('memory', this.value);"></textarea>
         <button class="btn-main" style="margin-top:8px;" onclick="Store.saveRoomMemory()">기억 수동 저장</button>
@@ -163,5 +176,11 @@
     <script src="js/dice.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW 등록 실패:', err));
+        }
+    </script>
 </body>
 </html>
