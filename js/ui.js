@@ -73,7 +73,10 @@ window.UI = {
     },
 
     renderScenarioList: function() {
-        const filter = document.getElementById('lobby-room-filter').value; const sortedRooms = [...Store.state.rooms].sort((a,b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+        let filter = document.getElementById('lobby-room-filter').value;
+        if (!filter) filter = 'all'; // 🔥 초기 로딩 시 전체 보기 강제 적용
+        
+        const sortedRooms = [...Store.state.rooms].sort((a,b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
         document.getElementById('scenario-list').innerHTML = sortedRooms.map((r, idx) => {
             if(filter !== 'all' && !r.tagIds.includes(filter)) return ''; const isRecent = idx === 0 && r.lastUpdated;
             const tagsHtml = r.tagIds.map(tId => { const tObj = Store.state.roomTags.find(x => x.id === tId); return tObj ? `<span class="lobby-card-tag" style="background:#7c3aed;">${this.esc(tObj.name)} <button type="button" style="background:none;border:none;color:white;cursor:pointer;padding:0 2px;" onclick="App.removeRoomTag('${r.id}', '${tId}', event)">×</button></span> ` : ''; }).join('');
@@ -207,12 +210,17 @@ window.UI = {
         document.getElementById('network-content').innerHTML = fmt + (fmt.includes('net-entry') ? '</div></div>' : ''); 
     },
     
+    // 🔥 HTML 찌꺼기 깔끔 제거 및 호환성 보완
     editNetwork: function(isEdit = true) {
         const r = Store.getActiveRoom(); const cDiv = document.getElementById('network-content'); const eArea = document.getElementById('network-edit-area'); const sBtn = document.getElementById('network-save-btn');
         if (isEdit && eArea.style.display === 'none') {
             let txt = r.networkArchive || '';
-            if(txt.includes('<div class="net-entry">')) txt = txt.replace(/<[^>]*>?/gm, '').trim();
-            eArea.value = txt.trim(); cDiv.style.display = 'none'; eArea.style.display = 'block'; sBtn.style.display = 'block'; setTimeout(() => this.autoResize(eArea), 10);
+            if(txt.includes('<div')) {
+                txt = txt.replace(/<br\s*\/?>/gi, '\n');
+                txt = txt.replace(/<[^>]*>?/gm, '');
+            }
+            eArea.value = txt.trim(); 
+            cDiv.style.display = 'none'; eArea.style.display = 'block'; sBtn.style.display = 'block'; setTimeout(() => this.autoResize(eArea), 10);
         } else { cDiv.style.display = 'block'; eArea.style.display = 'none'; sBtn.style.display = 'none'; }
     }
 };
