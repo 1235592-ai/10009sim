@@ -22,9 +22,8 @@ self.addEventListener('install', event => {
 
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request);
-    })
+    // 네트워크에서 먼저 최신 파일을 가져오고, 오프라인이거나 에러 나면 캐시를 보여줌 (Network First)
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
 
