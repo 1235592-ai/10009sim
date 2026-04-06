@@ -52,11 +52,20 @@ window.UI = {
                 } 
                 this.renderCharFilter(); this.renderCharacters(); 
             } 
-            if(id==='sys-panel') { const memInput = document.getElementById('room-memory-input'); memInput.value = Store.getActiveRoom().memory || ''; const statInput = document.getElementById('global-status-input'); statInput.value = Store.getActiveRoom().globalStatus || ''; this.renderNetworkArchive(); setTimeout(() => {this.autoResize(memInput); this.autoResize(statInput);}, 10); } 
+            if(id==='sys-panel') { 
+                const r = Store.getActiveRoom();
+                const memInput = document.getElementById('room-memory-input'); memInput.value = r.memory || ''; 
+                const statInput = document.getElementById('global-status-input'); statInput.value = r.globalStatus || ''; 
+                
+                const sel = document.getElementById('network-preset-sel');
+                if(sel) { sel.value = r.networkPreset || 'modern'; this.toggleCustomNet(sel.value); }
+                
+                this.renderNetworkArchive(); 
+                setTimeout(() => {this.autoResize(memInput); this.autoResize(statInput);}, 10); 
+            } 
         }
     },
 
-    // 복구된 안전 설정 UI 렌더링 기능 (체크 상태 DB 연동)
     renderSafetyUI: function() {
         const container = document.getElementById('safety-checks'); if(!container) return;
         const labels = { violence: "폭력/유혈", coercion: "강제/통제", sexual: "성적 표현", abuse: "모욕/학대", selfharm: "자해/자살", drugs: "약물/중독" };
@@ -174,18 +183,35 @@ window.UI = {
         cBtn.onclick = () => { App.loadActiveRoom(); }; btnWrap.append(sBtn, cBtn); msgDiv.append(editArea, btnWrap); setTimeout(() => this.autoResize(editArea), 10);
     },
 
-    renderNetworkArchive: function() { 
-        const r = Store.getActiveRoom(); const raw = r.networkArchive || "정보 없음";
-        if(raw === "정보 없음" || raw.includes('스캔 중')) return document.getElementById('network-content').innerHTML = raw;
-        if(raw.includes('<div class="net-entry">')) return document.getElementById('network-content').innerHTML = raw;
-        let fmt = raw.replace(/📰 \[기사\]/g, '<div class="net-entry"><span class="net-tag tag-news">📰 기사</span><div style="margin-top:8px;">').replace(/🔥 \[HOT\]/g, '</div></div><div class="net-entry"><span class="net-tag tag-hot">🔥 HOT</span><div style="margin-top:8px;">').replace(/🖥 \[게시판\]/g, '</div></div><div class="net-entry"><span class="net-tag tag-board">🖥 게시판</span><div style="margin-top:8px;">').replace(/💬 \[메신저\]/g, '</div></div><div class="net-entry"><span class="net-tag tag-msg">💬 메신저</span><div style="margin-top:8px;">').replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/\*(.*?)\*/g, "<em>$1</em>");
-        if(fmt.startsWith('</div></div>')) fmt = fmt.substring(12); document.getElementById('network-content').innerHTML = fmt + '</div></div>'; 
+    toggleCustomNet: function(val) {
+        const el = document.getElementById('custom-net-input');
+        if(el) el.style.display = (val === 'custom') ? 'block' : 'none';
+        Store.updateRoomState('networkPreset', val);
+        Store.forceSave();
     },
+
+    renderNetworkArchive: function() { 
+        const r = Store.getActiveRoom(); 
+        let raw = r.networkArchive || "정보가 없습니다. 스캔을 실행하세요.";
+        if(raw.includes('스캔 중')) return document.getElementById('network-content').innerHTML = raw;
+        
+        let fmt = raw.replace(/\[(.*?)\]/g, (match) => {
+            return `</div></div><div class="net-entry"><span class="net-tag tag-universal">${match}</span><div style="margin-top:8px;">`;
+        });
+
+        fmt = fmt.replace(/\n[ㄴ└]\s?(.*)/g, '<div class="net-comment">ㄴ $1</div>');
+        
+        fmt = fmt.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/\*(.*?)\*/g, "<em>$1</em>");
+        
+        if(fmt.startsWith('</div></div>')) fmt = fmt.substring(12);
+        document.getElementById('network-content').innerHTML = fmt + (fmt.includes('net-entry') ? '</div></div>' : ''); 
+    },
+    
     editNetwork: function(isEdit = true) {
         const r = Store.getActiveRoom(); const cDiv = document.getElementById('network-content'); const eArea = document.getElementById('network-edit-area'); const sBtn = document.getElementById('network-save-btn');
         if (isEdit && eArea.style.display === 'none') {
             let txt = r.networkArchive || '';
-            if(txt.includes('<div class="net-entry">')) txt = txt.replace(/<div class="net-entry"><span class="net-tag tag-news">📰 기사<\/span><div style="margin-top:8px;">/g, '📰 [기사]\n').replace(/<div class="net-entry"><span class="net-tag tag-hot">🔥 HOT<\/span><div style="margin-top:8px;">/g, '🔥 [HOT]\n').replace(/<div class="net-entry"><span class="net-tag tag-board">🖥 게시판<\/span><div style="margin-top:8px;">/g, '🖥 [게시판]\n').replace(/<div class="net-entry"><span class="net-tag tag-msg">💬 메신저<\/span><div style="margin-top:8px;">/g, '💬 [메신저]\n').replace(/<\/div><\/div>/g, '\n').replace(/<br>/g, '\n').replace(/<[^>]*>?/gm, '');
+            if(txt.includes('<div class="net-entry">')) txt = txt.replace(/<[^>]*>?/gm, '').trim();
             eArea.value = txt.trim(); cDiv.style.display = 'none'; eArea.style.display = 'block'; sBtn.style.display = 'block'; setTimeout(() => this.autoResize(eArea), 10);
         } else { cDiv.style.display = 'block'; eArea.style.display = 'none'; sBtn.style.display = 'none'; }
     }
