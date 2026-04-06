@@ -30,7 +30,6 @@ window.Store = {
     init: async function() {
         try { this.db = await this.openDB(); } catch(e) { alert("저장소 초기화 실패. 브라우저 설정(시크릿 모드 등)을 확인하세요."); return; }
         
-        // 🧠 DB 데이터를 초고속 메모리(state)로 불러오기
         const master = await this.dbGet('master', 'main');
         if (master) {
             this.state.apiKey = master.apiKey || ''; 
@@ -41,7 +40,6 @@ window.Store = {
             this.state.rooms = await this.dbGetAll('rooms');
             this.state.rooms.forEach(r => { if(!r.tagIds) r.tagIds = []; });
         } else {
-            // 아무것도 없는 완전 초기 상태 (기본 세계관 생성)
             const defaultSys = {id:'sys', keyword:'시스템', desc:'전지적 시스템', secret:'', stats:[], reputation:[], factionIds:[], triggerLocId:'', isHidden:true};
             const defaultWorld = { id: 'w_'+Date.now(), name: '기본 세계관', prompt: '현대 배경.', bgUrl: '', regions: [], locations: [], factions: [], loreFolders: [], lores: [], characters: [defaultSys] };
             this.state.worlds.push(defaultWorld);
@@ -49,7 +47,6 @@ window.Store = {
         }
     },
 
-    // 💾 타이핑 렉 방지 최적화: '현재 방'만 선별해서 저장
     forceSave: function() {
         if(this.saveTimeout) clearTimeout(this.saveTimeout);
         this.saveTimeout = setTimeout(() => {
@@ -58,15 +55,11 @@ window.Store = {
             try {
                 const tx = this.db.transaction(['master', 'worlds', 'rooms'], 'readwrite');
                 tx.objectStore('master').put(master);
-                // 템플릿(세계관)은 용량이 작으므로 항상 일괄 덮어쓰기
                 this.state.worlds.forEach(w => tx.objectStore('worlds').put(w));
-                
                 if (this.state.activeRoomId) {
-                    // 시나리오 진행 중: 막대한 렉 방지를 위해 '현재 방' 1개만 골라서 덮어쓰기
                     const r = this.getActiveRoom();
                     if(r) tx.objectStore('rooms').put(r);
                 } else {
-                    // 로비에 있을 때: 태그 수정/방 복제 등을 반영하기 위해 일괄 덮어쓰기
                     this.state.rooms.forEach(r => tx.objectStore('rooms').put(r));
                 }
             } catch(e) { console.error("DB Save Error", e); }
@@ -87,14 +80,18 @@ window.Store = {
     createNewWorldTemplate: function() { const newW = { id: 'w_'+Date.now(), name: '새 세계관', prompt: '', bgUrl: '', regions: [], locations: [], factions: [], loreFolders: [], lores: [], characters: [{id:'sys', keyword:'시스템', desc:'', secret:'', stats:[], reputation:[], factionIds:[], triggerLocId:'', isHidden:true}] }; this.state.worlds.unshift(newW); this.forceSave(); UI.renderWorldTemplateList(); UI.showToast("새 템플릿 생성됨"); App.editWorldTemplate(newW.id); },
     deleteWorldTemplate: function(id) { if(!confirm("이 템플릿을 영구 삭제하시겠습니까? (시나리오 데이터는 유지됨)")) return; this.state.worlds = this.state.worlds.filter(w => w.id !== id); this.dbDelete('worlds', id); this.forceSave(); UI.renderWorldTemplateList(); },
     
+    // 🔥 버그 수정: || 를 ??(Nullish Coalescing)로 교체하여 빈 문자열 정상 저장
     syncWorldDOM: function() {
         const w = this.getTargetWorld(); if(!w) return;
-        w.name = document.getElementById('w-n')?.value || w.name; w.prompt = document.getElementById('w-d')?.value || w.prompt; w.bgUrl = document.getElementById('w-url')?.value || w.bgUrl;
-        w.factions.forEach(f => { f.name = document.getElementById(`f-n-${f.id}`)?.value || f.name; f.desc = document.getElementById(`f-d-${f.id}`)?.value || f.desc; f.secret = document.getElementById(`f-s-${f.id}`)?.value || f.secret; });
-        w.loreFolders.forEach(lf => { lf.name = document.getElementById(`lf-n-${lf.id}`)?.value || lf.name; lf.desc = document.getElementById(`lf-d-${lf.id}`)?.value || lf.desc; });
-        w.lores.forEach(l => { l.keyword = document.getElementById(`l-n-${l.id}`)?.value || l.keyword; l.desc = document.getElementById(`l-d-${l.id}`)?.value || l.desc; l.folderId = document.getElementById(`l-fld-${l.id}`)?.value || l.folderId; l.triggerLocId = document.getElementById(`l-trig-${l.id}`)?.value || l.triggerLocId; });
-        w.regions.forEach(reg => { reg.name = document.getElementById(`reg-n-${reg.id}`)?.value || reg.name; reg.desc = document.getElementById(`reg-d-${reg.id}`)?.value || reg.desc; });
-        w.locations.forEach(loc => { loc.name = document.getElementById(`loc-n-${loc.id}`)?.value || loc.name; loc.desc = document.getElementById(`loc-d-${loc.id}`)?.value || loc.desc; loc.regionId = document.getElementById(`loc-r-${loc.id}`)?.value || loc.regionId; });
+        w.name = document.getElementById('w-n')?.value ?? w.name; 
+        w.prompt = document.getElementById('w-d')?.value ?? w.prompt; 
+        w.bgUrl = document.getElementById('w-url')?.value ?? w.bgUrl;
+        
+        w.factions.forEach(f => { f.name = document.getElementById(`f-n-${f.id}`)?.value ?? f.name; f.desc = document.getElementById(`f-d-${f.id}`)?.value ?? f.desc; f.secret = document.getElementById(`f-s-${f.id}`)?.value ?? f.secret; });
+        w.loreFolders.forEach(lf => { lf.name = document.getElementById(`lf-n-${lf.id}`)?.value ?? lf.name; lf.desc = document.getElementById(`lf-d-${lf.id}`)?.value ?? lf.desc; });
+        w.lores.forEach(l => { l.keyword = document.getElementById(`l-n-${l.id}`)?.value ?? l.keyword; l.desc = document.getElementById(`l-d-${l.id}`)?.value ?? l.desc; l.folderId = document.getElementById(`l-fld-${l.id}`)?.value ?? l.folderId; l.triggerLocId = document.getElementById(`l-trig-${l.id}`)?.value ?? l.triggerLocId; });
+        w.regions.forEach(reg => { reg.name = document.getElementById(`reg-n-${reg.id}`)?.value ?? reg.name; reg.desc = document.getElementById(`reg-d-${reg.id}`)?.value ?? reg.desc; });
+        w.locations.forEach(loc => { loc.name = document.getElementById(`loc-n-${loc.id}`)?.value ?? loc.name; loc.desc = document.getElementById(`loc-d-${loc.id}`)?.value ?? loc.desc; loc.regionId = document.getElementById(`loc-r-${loc.id}`)?.value ?? loc.regionId; });
     },
     saveWorld: function() { this.syncWorldDOM(); this.forceSave(); UI.renderWorld(); UI.showToast("세계관이 저장되었습니다."); if(this.state.activeRoomId) App.loadActiveRoom(); else UI.renderWorldTemplateList(); },
     addFaction: function() { const w = this.getTargetWorld(); this.syncWorldDOM(); w.factions.push({ id:'f_'+Date.now(), name:'', desc:'', secret:'' }); this.forceSave(); UI.renderWorld(); },
@@ -102,6 +99,8 @@ window.Store = {
     addLore: function(fId) { const w = this.getTargetWorld(); this.syncWorldDOM(); w.lores.push({ id:'l_'+Date.now(), folderId: fId, keyword:'', desc:'', triggerLocId:'' }); this.forceSave(); UI.renderWorld(); },
     addRegion: function() { const w = this.getTargetWorld(); this.syncWorldDOM(); w.regions.push({ id:'reg_'+Date.now(), name:'', desc:'' }); this.forceSave(); UI.renderWorld(); },
     addLocation: function(rId) { const w = this.getTargetWorld(); this.syncWorldDOM(); w.locations.push({ id:'loc_'+Date.now(), regionId: rId, name:'', desc:'' }); this.forceSave(); UI.renderWorld(); },
+    
+    // 🔥 버그 수정: 장소(loc) 삭제 시 currentLocIdx 보정 로직 부활
     delWorldItem: function(type, id, e) {
         if(e) e.stopPropagation(); if(!confirm("삭제하시겠습니까?")) return;
         const w = this.getTargetWorld(); this.syncWorldDOM();
@@ -109,17 +108,31 @@ window.Store = {
         if(type==='lf') { w.loreFolders = w.loreFolders.filter(x=>x.id!==id); w.lores.forEach(l=>{ if(l.folderId===id) l.folderId=''; }); }
         if(type==='l') w.lores = w.lores.filter(x=>x.id!==id);
         if(type==='reg') { w.regions = w.regions.filter(x=>x.id!==id); w.locations.forEach(loc=>{ if(loc.regionId===id) loc.regionId=''; }); }
-        if(type==='loc') w.locations = w.locations.filter(x=>x.id!==id);
+        if(type==='loc') {
+            const idx = w.locations.findIndex(x=>x.id===id);
+            if(idx !== -1) {
+                w.locations.splice(idx, 1);
+                if(this.state.activeRoomId) {
+                    const r = this.getActiveRoom();
+                    if(r.currentLocIdx === idx) r.currentLocIdx = -1;
+                    else if(r.currentLocIdx > idx) r.currentLocIdx--;
+                }
+            }
+        }
         this.forceSave(); UI.renderWorld();
     },
 
+    // 🔥 버그 수정: 여기도 ?? 로 교체
     syncCharDOM: function() {
         const w = this.getTargetWorld(); if(!w) return;
         w.characters.forEach(c => {
-            const nEl = document.getElementById(`c-n-${c.id}`); if(nEl) c.keyword = nEl.value;
-            const dEl = document.getElementById(`c-d-${c.id}`); if(dEl) c.desc = dEl.value;
-            const sEl = document.getElementById(`c-s-${c.id}`); if(sEl) c.secret = sEl.value;
-            if (c.id !== 'sys') { const fEl = document.getElementById(`c-f-hid-${c.id}`); if(fEl) c.factionIds = fEl.value ? fEl.value.split(',') : []; const locEl = document.getElementById(`c-trig-${c.id}`); if(locEl) c.triggerLocId = locEl.value; }
+            c.keyword = document.getElementById(`c-n-${c.id}`)?.value ?? c.keyword;
+            c.desc = document.getElementById(`c-d-${c.id}`)?.value ?? c.desc;
+            c.secret = document.getElementById(`c-s-${c.id}`)?.value ?? c.secret;
+            if (c.id !== 'sys') { 
+                const fEl = document.getElementById(`c-f-hid-${c.id}`); if(fEl) c.factionIds = fEl.value ? fEl.value.split(',') : []; 
+                c.triggerLocId = document.getElementById(`c-trig-${c.id}`)?.value ?? c.triggerLocId; 
+            }
         });
     },
     saveCharacters: function() { this.syncCharDOM(); this.forceSave(); UI.renderCharacters(); UI.showToast("인물 설정이 저장되었습니다."); if(this.state.activeRoomId) App.loadActiveRoom(); },
@@ -137,7 +150,6 @@ window.Store = {
     delRep: function(cId, rIdx) { const w = this.getTargetWorld(); const c = w.characters.find(x => x.id === cId); if(c && confirm("이 성향 축을 삭제하시겠습니까?")) { this.syncCharDOM(); c.reputation.splice(rIdx, 1); this.forceSave(); UI.renderCharacters(); } },
     upRep: function(cId, rIdx, key, val) { const w = this.getTargetWorld(); const c = w.characters.find(x => x.id === cId); if(c && c.reputation[rIdx]) { c.reputation[rIdx][key] = (key==='value' ? Number(val) : val); this.forceSave(); } },
 
-    // 📥 내보내기/불러오기
     exportData: function() { const exp = { apiKey: this.state.apiKey, modelName: this.state.modelName, safety: this.state.safety, roomTags: this.state.roomTags, worlds: this.state.worlds, rooms: this.state.rooms }; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(exp)], {type:'application/json'})); a.download = `10009SIM_Backup_${Date.now()}.json`; a.click(); },
     exportChatToTxt: function() { const r = this.getActiveRoom(); if(!r) return; const w = r.worldInstance; let txt = `${r.name} - 로그\\n\\n`; r.history.forEach(m => { const speaker = m.role === 'user' ? (w.characters.find(c=>c.id===r.myCharId)?.keyword || 'USER') : (m.charIds || ['sys']).map(id => w.characters.find(c=>c.id===id)?.keyword).filter(x=>x).join(', ') || '시뮬레이터'; txt += `[${speaker}]\n${m.variants[m.currentVariant]}\n\n`; }); const a = document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'})); a.download=`${r.name}.txt`; a.click(); },
     importData: function(e) { 
