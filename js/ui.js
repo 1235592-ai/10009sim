@@ -2,7 +2,24 @@ window.UI = {
     activeModal: null,
 
     esc: function(s) { return s === undefined || s === null ? '' : s.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); },
-    autoResize: function(el) { if (!el) return; el.style.height = '1px'; el.style.height = el.scrollHeight + 'px'; if (el.id === 'msg-input') this.scrollToBottom(true); },
+        autoResize: function(el) { 
+        if (!el) return; 
+        el.style.height = '1px'; 
+        
+        let maxH = parseInt(window.getComputedStyle(el).maxHeight);
+        if (isNaN(maxH)) maxH = 300; 
+        
+        if (el.scrollHeight >= maxH) {
+            el.style.height = maxH + 'px';
+            el.style.overflowY = 'auto';
+        } else {
+            el.style.height = el.scrollHeight + 'px';
+            el.style.overflowY = 'hidden';
+        }
+        
+        if (el.id === 'msg-input') this.scrollToBottom(true); 
+    },
+
     scrollToBottom: function(instant = false) { const c = document.getElementById('chat-container'); if(instant) c.scrollTop = c.scrollHeight; else c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }); },
     showToast: function(msg) { const t = document.getElementById('toast-noti'); t.innerText=msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); },
     
