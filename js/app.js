@@ -18,8 +18,8 @@ window.App = {
         }
     },
 
-    init: function() {
-        Store.init();
+    init: async function() {
+        await Store.init();
         window.addEventListener('beforeunload', () => { Store.forceSave(); });
         window.addEventListener('popstate', (e) => {
             if (this.isPanelOpen) {
@@ -34,9 +34,9 @@ window.App = {
     handleInputKey: function(e) {
         if(e.key === 'Enter' && !e.shiftKey) {
             if(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                return; 
+                return; // 모바일: 줄바꿈 허용
             } else {
-                e.preventDefault(); 
+                e.preventDefault(); // PC: 줄바꿈 방지 및 전송
                 if(!this.isGenerating) this.handleAction();
             }
         }
@@ -143,7 +143,16 @@ window.App = {
     editRoomInfo: function(id) { document.getElementById('edit-room-id').value = id; document.getElementById('edit-room-name').value = Store.state.rooms.find(x => x.id === id).name; UI.openModal('edit-room-modal'); },
     saveRoomInfo: function() { const r = Store.state.rooms.find(x => x.id === document.getElementById('edit-room-id').value); if(r) { r.name = document.getElementById('edit-room-name').value.trim() || '시나리오'; Store.forceSave(); UI.renderScenarioList(); } UI.closeModal('edit-room-modal'); },
     cloneRoom: function(id) { const t = Store.state.rooms.find(r => r.id === id); if(confirm("복제하시겠습니까? (대화는 초기화됨)")) { const nr = JSON.parse(JSON.stringify(t)); nr.id = 'r_'+Date.now(); nr.name = t.name + " (새 회차)"; nr.history = []; nr.memory = ''; nr.networkArchive = ''; nr.lastUpdated = Date.now(); const idMap = this.remapWorldIds(nr.worldInstance); if(idMap[nr.myCharId]) nr.myCharId = idMap[nr.myCharId]; nr.activeCharIds = nr.activeCharIds.map(cid => idMap[cid] || cid); Store.state.rooms.unshift(nr); Store.forceSave(); UI.renderScenarioList(); UI.showToast("복제 완료"); } },
-    deleteRoom: function(id) { if(confirm("삭제하시겠습니까?")) { Store.state.rooms = Store.state.rooms.filter(x=>x.id!==id); localStorage.removeItem(`rpRoom_v${Store.VERSION}_${id}`); Store.forceSave(); UI.renderScenarioList(); } },
+    
+    // DB에서 완전히 삭제
+    deleteRoom: function(id) { 
+        if(confirm("삭제하시겠습니까?")) { 
+            Store.state.rooms = Store.state.rooms.filter(x=>x.id!==id); 
+            Store.removeRoomDB(id); 
+            Store.forceSave(); 
+            UI.renderScenarioList(); 
+        } 
+    },
     
     createNewRoom: function() { 
         const wId = document.getElementById('new-room-world-sel').value; 
@@ -162,4 +171,4 @@ window.App = {
     remapWorldIds: function(w) { const idMap = {}; const gen = (pfx) => pfx + '_' + Date.now() + Math.random().toString(36).substr(2,5); w.regions.forEach(x => { const o=x.id; x.id=gen('reg'); idMap[o]=x.id; }); w.locations.forEach(x => { const o=x.id; x.id=gen('loc'); idMap[o]=x.id; }); w.factions.forEach(x => { const o=x.id; x.id=gen('f'); idMap[o]=x.id; }); w.loreFolders.forEach(x => { const o=x.id; x.id=gen('lf'); idMap[o]=x.id; }); w.lores.forEach(x => { const o=x.id; x.id=gen('l'); idMap[o]=x.id; }); w.characters.forEach(x => { if(x.id !== 'sys') { const o=x.id; x.id=gen('c'); idMap[o]=x.id; } if(x.reputation) x.reputation.forEach(r => { r.id = gen('rep'); }); }); w.locations.forEach(x => { if(idMap[x.regionId]) x.regionId = idMap[x.regionId]; }); w.lores.forEach(x => { if(idMap[x.triggerLocId]) x.triggerLocId = idMap[x.triggerLocId]; if(idMap[x.folderId]) x.folderId = idMap[x.folderId]; }); w.characters.forEach(x => { if(idMap[x.triggerLocId]) x.triggerLocId = idMap[x.triggerLocId]; if(x.factionIds) x.factionIds = x.factionIds.map(fid => idMap[fid] || fid); }); return idMap; }
 };
 
-window.onload = () => { window.App.init(); };
+window.onload = async () => { await window.App.init(); };
