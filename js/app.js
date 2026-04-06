@@ -2,6 +2,22 @@ window.App = {
     isGenerating: false,
     isPanelOpen: false,
 
+    hardResetApp: function() {
+        if(!confirm("최신 버전으로 앱을 강제 새로고침 하시겠습니까?\n(작성하신 시나리오와 설정 데이터는 안전하게 유지됩니다!)")) return;
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) { registration.unregister(); }
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names) caches.delete(name);
+            }).then(() => { window.location.reload(true); });
+        } else {
+            window.location.reload(true);
+        }
+    },
+
     init: function() {
         Store.init();
         window.addEventListener('beforeunload', () => { Store.forceSave(); });
@@ -15,13 +31,12 @@ window.App = {
         UI.renderScenarioList(); UI.renderWorldTemplateList(); UI.renderSafetyUI();
     },
 
-    // 🔥 복구: 엔터키 전송 이벤트
     handleInputKey: function(e) {
         if(e.key === 'Enter' && !e.shiftKey) {
             if(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                return; // 모바일: 줄바꿈 허용
+                return; 
             } else {
-                e.preventDefault(); // PC: 줄바꿈 방지 및 전송
+                e.preventDefault(); 
                 if(!this.isGenerating) this.handleAction();
             }
         }
@@ -108,7 +123,6 @@ window.App = {
     rewindRoom: function(idx) { if(this.isGenerating) return; if(confirm("이후 대화를 지우고 여기서 다시 시작할까요?")) { Store.getActiveRoom().history = Store.getActiveRoom().history.slice(0, idx + 1); Store.forceSave(); this.loadActiveRoom(); } },
     branch: function(idx) { if(this.isGenerating) return; const r = Store.getActiveRoom(); const h = JSON.parse(JSON.stringify(r.history.slice(0,idx))).map(m=>({role:m.role, variants:[m.variants[m.currentVariant]], currentVariant:0, charIds:m.charIds})); const nr = { ...JSON.parse(JSON.stringify(r)), id:'r_'+Date.now(), name:'[분기] '+r.name, history:h, lastUpdated:Date.now() }; Store.state.rooms.unshift(nr); Store.state.activeRoomId = nr.id; Store.forceSave(); UI.renderScenarioList(); this.loadActiveRoom(); UI.showToast("새 분기(채팅방)로 이동했습니다."); this.runAI(); },
 
-    // 🔥 복구: 시나리오에서 템플릿 추출 기능
     extractTemplate: function(roomId) { 
         if(!confirm("이 시나리오의 현재 세계관(인물, 장소 등)을 새로운 템플릿으로 추출하시겠습니까?")) return;
         const r = Store.state.rooms.find(x => x.id === roomId); 
