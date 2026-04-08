@@ -31,31 +31,59 @@ window.API = {
         return data.candidates[0].content.parts[0].text;
     },
 
-    // 🔥 정규식을 통해 순수 JSON 배열/객체만 악착같이 추출하는 파서
+    // 🔥 완벽하게 재설계된 무적의 JSON 파서
     parseAIJsonRaw: function(text) {
-        try { 
-            let clean = text.replace(/```json/ig, '').replace(/```/ig, '').trim(); 
-            let s = clean.indexOf('['); let e = clean.lastIndexOf(']'); 
-            if(s === -1 || e === -1) { s = clean.indexOf('{'); e = clean.lastIndexOf('}'); } 
-            if(s !== -1 && e !== -1) return JSON.parse(clean.substring(s, e+1)); 
-            return null; 
-        } catch(e) { return null; }
+        if (!text) return null;
+        let clean = text.replace(/```json/ig, '').replace(/```/ig, '').trim();
+        
+        // 1차 시도: 깔끔한 형태일 경우 바로 파싱
+        try { return JSON.parse(clean); } catch(e) {}
+        
+        // 2차 시도: 앞뒤 텍스트가 섞여 있거나 찌꺼기가 남은 경우 괄호 추적
+        try {
+            let firstBrace = clean.indexOf('{');
+            let firstBracket = clean.indexOf('[');
+            let startIdx = -1, endIdx = -1;
+
+            // 객체({})인지 배열([])인지 가장 겉면의 괄호를 정확히 판단
+            if (firstBrace !== -1 && firstBracket !== -1) {
+                if (firstBrace < firstBracket) {
+                    startIdx = firstBrace; endIdx = clean.lastIndexOf('}');
+                } else {
+                    startIdx = firstBracket; endIdx = clean.lastIndexOf(']');
+                }
+            } else if (firstBrace !== -1) {
+                startIdx = firstBrace; endIdx = clean.lastIndexOf('}');
+            } else if (firstBracket !== -1) {
+                startIdx = firstBracket; endIdx = clean.lastIndexOf(']');
+            }
+
+            if (startIdx !== -1 && endIdx !== -1) {
+                let sub = clean.substring(startIdx, endIdx + 1);
+                // AI의 고질적인 문법 오류인 배열/객체 끝부분의 콤마 찌꺼기 제거
+                sub = sub.replace(/,\s*([\]}])/g, '$1');
+                // 파싱에 치명적인 제어문자(보이지 않는 특수문자) 삭제
+                sub = sub.replace(/[\u0000-\u0019]+/g, ""); 
+                return JSON.parse(sub);
+            }
+            return null;
+        } catch (err) {
+            console.error("강제 파싱 실패:", err, "\n원본:", text);
+            return null;
+        }
     },
 
-    // 1. 세계관 스케치 연성 (JSON)
     generateWorldSketch: async function(keywords) {
         const p = `제공된 핵심 키워드: [${keywords.join(', ')}]\n이 키워드들을 바탕으로 매우 흥미롭고 개연성 있는 세계관의 뼈대를 설계해라. 오직 JSON 객체만 반환할 것.\n포맷:\n{\n  "name": "세계관의 이름",\n  "prompt": "세계관의 전반적인 배경 요약 (300자 내외)",\n  "factions": [{"name": "세력명", "desc": "설명"}],\n  "lores": [{"name": "지식/설정명", "desc": "설명"}],\n  "locations": [{"name": "장소명", "desc": "설명"}]\n}\n※ 세력, 지식, 장소는 각각 정확히 3개씩 작성할 것.`;
         const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관 창조 마스터.", {temp: 0.8, jsonMode: true});
         return this.parseAIJsonRaw(text);
     },
 
-    // 2. 키워드 제안 (Text)
     generateMoreKeywords: async function(keywords) {
         const p = `현재 키워드: [${keywords.join(', ')}]\n세계관을 더 매력적으로 확장하기 위해 어울리는 핵심 키워드 3개를 추가로 제안해. 기존과 중복 금지. 다른 설명 없이 오직 콤마(,)로 구분된 단어 3개만 반환해. (예: 마법, 제국, 아카데미)`;
         return await this.callGemini([{role:'user', parts:[{text: p}]}], null, {temp: 0.9});
     },
 
-    // 3. 듀얼 상세 채우기 (JSON or Text)
     generateDetail: async function(typeStr, keywords, title, desc, mode) {
         let p = `세계관 전체 키워드: [${keywords.join(', ')}]\n타겟 항목: ${typeStr}\n`;
         
