@@ -24,10 +24,12 @@ window.UI = {
     
     switchTab: function(id, e) { document.querySelectorAll('.lobby-tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.lobby-content').forEach(c=>c.classList.remove('active')); e.target.classList.add('active'); document.getElementById(id).classList.add('active'); if(id === 'tab-scenarios') this.renderScenarioList(); if(id === 'tab-worlds') this.renderWorldTemplateList(); },
     
+    // 🔥 모달 열림 시 브라우저 히스토리 스택 추가
     openModal: function(id) { 
         this.activeModal = id;
         document.getElementById(id).style.display = 'block'; 
         document.getElementById('overlay').classList.add('active'); 
+        history.pushState({ modal: id }, ""); // 백버튼 방어선 구축
     },
     closeModal: function(id) { 
         this.activeModal = null;
@@ -40,7 +42,9 @@ window.UI = {
         if(!document.querySelector('.panel.open')) { document.getElementById('overlay').classList.remove('active'); }
     },
     closeOverlay: function() {
-        if(this.activeModal) { this.closeModal(this.activeModal); } 
+        if(this.activeModal) { 
+            history.back(); // 오버레이 클릭 시에도 자연스러운 popstate 트리거 유도
+        } 
         else if (App.isPanelOpen) { history.back(); }
     },
 
@@ -83,18 +87,26 @@ window.UI = {
     togglePanel: function(id) {
         if(App.isGenerating) return; this.syncPanelsBeforeClose();
         const p = document.getElementById(id);
+        const pop = document.getElementById('dice-settings-popover');
+        
         if(p.classList.contains('open')) { 
             if(App.isPanelOpen) history.back(); 
         } 
         else {
+            // 🔥 Race Condition 해결: 주사위 팝업이 열려있으면 강제로 먼저 닫고 Panel 스택으로 교체
+            if (pop && pop.classList.contains('open')) {
+                this.internalClosePopover();
+                history.replaceState({ panel: true }, "");
+            } else {
+                if(!App.isPanelOpen) { history.pushState({ panel: true }, ""); }
+            }
+            App.isPanelOpen = true;
+            
             document.querySelectorAll('.panel').forEach(el => el.classList.remove('open')); 
-            
             p.querySelectorAll('details[open]').forEach(d => d.removeAttribute('open'));
-            
             p.classList.add('open'); 
             document.getElementById('overlay').classList.add('active');
             
-            if(!App.isPanelOpen) { history.pushState({ panel: true }, ""); App.isPanelOpen = true; }
             if(id==='world-panel') { 
                 if(Store.state.activeRoomId) { document.getElementById('world-panel-title').innerText = "🗺️ 인게임 세계 설정"; document.getElementById('btn-free-roam').style.display = 'block'; } 
                 else { document.getElementById('world-panel-title').innerText = "🌌 템플릿 원본 편집"; document.getElementById('btn-free-roam').style.display = 'none'; } 
@@ -131,8 +143,6 @@ window.UI = {
             selfharm: "자해 및 자살", drugs: "음주 및 약물", marysue: "과잉 찬양", obsession: "소유욕 및 집착",
             gore: "공포 및 기괴함", romance: "로맨스 전개"
         };
-        
-        // 🔥 수정됨: 과거에 쓰이던 삭제된 설정값이 남아있어 undefined가 뜨는 것을 방어
         container.innerHTML = Object.keys(Store.state.safety).map(key => {
             if (!labels[key]) return ''; 
             return `<label style="display:flex; align-items:center; gap:10px; margin-bottom:8px; cursor:pointer; font-size:0.85rem;"><input type="checkbox" ${Store.state.safety[key] ? 'checked' : ''} onchange="Store.state.safety.${key}=this.checked; Store.saveSettings();"> ${labels[key]}</label>`;
