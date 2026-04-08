@@ -21,7 +21,6 @@ window.App = {
     init: async function() {
         await Store.init();
         
-        // 설정 폼 초기화 바인딩
         const bgEl = document.getElementById('set-lobby-bg');
         if(bgEl) bgEl.value = Store.state.lobbyBgUrl || '';
         const apiEl = document.getElementById('set-api-key');
@@ -29,60 +28,72 @@ window.App = {
         const modEl = document.getElementById('set-model-name');
         if(modEl) modEl.value = Store.state.modelName || '';
 
-        // 🔥 화면 중첩 버그 수정: 초기 로드 시 뷰 강제 분리 및 기준 History 상태 생성
-        history.replaceState({ main: true }, "");
+        history.replaceState({ page: 'lobby' }, "");
         document.getElementById('game-container').style.display = 'none';
-        document.getElementById('lobby-container').style.display = 'flex';
-        
-        // 🔥 초기 진입 시 로비 배경 적용
+        document.getElementById('lobby-container').style.display = 'block'; 
         document.body.style.backgroundImage = Store.state.lobbyBgUrl ? `url('${Store.state.lobbyBgUrl}')` : 'none';
 
         window.addEventListener('beforeunload', () => { Store.forceSave(); });
         
-        // 🔥 브라우저 뒤로 가기(PopState) 라우팅 완벽 제어
+        // 🔥 시니어 개발자의 완벽한 라우팅 뎁스(Depth) 제어기
         window.addEventListener('popstate', (e) => {
             const pop = document.getElementById('dice-settings-popover');
 
-            // 1순위: 우측 패널(세계관, 인물 등)이 열려있으면 패널 닫기
+            // 1순위: 화면 중앙 모달창 (새 시나리오, 불러오기 등) 닫기
+            if (UI.activeModal) {
+                const closingModal = UI.activeModal;
+                UI.activeModal = null;
+                document.getElementById(closingModal).style.display = 'none'; 
+                if(!document.querySelector('.panel.open')) { document.getElementById('overlay').classList.remove('active'); }
+                return;
+            }
+            
+            // 2순위: 우측 패널(세계관, 인물 등)이 열려있으면 패널 닫기
             if (this.isPanelOpen) {
                 UI.syncPanelsBeforeClose();
                 this.isPanelOpen = false;
                 document.querySelectorAll('.panel').forEach(p => p.classList.remove('open'));
                 document.getElementById('overlay').classList.remove('active');
+                return;
             } 
-            // 2순위: 주사위 팝업(드로어)이 열려있으면 팝업 닫기
-            else if (pop && pop.classList.contains('open')) {
+            
+            // 3순위: 주사위 책갈피(드로어)가 열려있으면 닫기
+            if (pop && pop.classList.contains('open')) {
                 UI.internalClosePopover();
+                return;
             } 
-            // 3순위: 채팅방 안에 있다면 로비로 나가기
-            else if (Store.state.activeRoomId) {
+            
+            // 4순위: 채팅방 안에 있다면 로비로 나가기
+            if (Store.state.activeRoomId) {
                 if(this.isGenerating) {
-                    history.pushState({ page: 'room' }, ""); // 생성 중엔 나갈 수 없게 상태 복구
+                    history.pushState({ page: 'room' }, ""); 
                     return;
                 }
                 UI.syncPanelsBeforeClose();
                 Store.state.activeRoomId = null;
                 document.getElementById('game-container').style.display = 'none';
-                document.getElementById('lobby-container').style.display = 'flex';
-                
-                // 🔥 로비로 나올 때 시나리오 배경을 지우고 로비 커스텀 배경 씌우기
+                document.getElementById('lobby-container').style.display = 'block'; 
                 document.body.style.backgroundImage = Store.state.lobbyBgUrl ? `url('${Store.state.lobbyBgUrl}')` : 'none';
-                
                 UI.renderScenarioList();
+                return;
             } 
-            // 4순위: 로비 화면이라면 앱 종료 확인
-            else {
-                if (confirm("앱을 종료하시겠습니까?")) { history.back(); } else { history.pushState({ main: true }, ""); }
-            }
+            
+            // 5순위: 로비 최상단일 경우 앱 종료 의사 확인
+            if (confirm("앱을 종료하시겠습니까?")) { history.back(); } else { history.pushState({ page: 'lobby' }, ""); }
         });
         
-        // 빈 공간 클릭 시 드로어(팝업) 닫기 이벤트 바인딩
+        // 🔥 Race Condition 방지: 빈 공간 클릭 시 드로어(팝업) 안전 닫기 로직
         document.addEventListener('click', (e) => {
             const pop = document.getElementById('dice-settings-popover');
             const btn = document.getElementById('btn-action-expand');
             if (pop && pop.classList.contains('open')) {
+                // 다른 UI 요소(버튼, 패널 등)를 클릭한 것이 아닌, 순수 배경 클릭일 때만 팝스테이트 호출
                 if (!pop.contains(e.target) && !btn.contains(e.target)) {
-                    history.back(); // PopState 트리거를 통해 안전하게 닫기
+                    if(history.state && history.state.popover) {
+                        history.back(); // 상태가 팝업일 때만 백버튼 에뮬레이션
+                    } else {
+                        UI.internalClosePopover(); // 다른 상태가 중첩되었다면 뷰만 즉시 강제 종료
+                    }
                 }
             }
         });
@@ -107,7 +118,6 @@ window.App = {
         const r = Store.getActiveRoom(); 
         r.lastUpdated = Date.now(); 
         
-        // 화면 중첩 버그 수정: 뷰 스위칭 및 상태 푸시
         document.getElementById('lobby-container').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
         history.pushState({ page: 'room' }, ""); 
@@ -118,7 +128,6 @@ window.App = {
     
     exitToLobby: function() { 
         if(this.isGenerating) return; 
-        // 버튼 클릭 시 실제 나가는 로직은 popstate 이벤트 헨들러에게 위임
         history.back(); 
     },
     
@@ -131,7 +140,6 @@ window.App = {
         let locName = "자유 이동 (미분류)"; if(r.currentLocIdx >= 0 && w.locations[r.currentLocIdx]) { const l = w.locations[r.currentLocIdx]; const reg = w.regions.find(rg => rg.id === l.regionId); locName = reg ? `${reg.name} - ${l.name}` : l.name; }
         document.getElementById('header-loc-name').innerText = `🧭 위치: ` + locName; 
         
-        // 🔥 시나리오 진입 시 해당 월드의 배경 이미지 씌우기
         document.body.style.backgroundImage = w.bgUrl ? `url('${w.bgUrl}')` : 'none'; 
         
         document.getElementById('room-memory-input').value = r.memory || ''; document.getElementById('global-status-input').value = r.globalStatus || '';
@@ -156,6 +164,10 @@ window.App = {
         
         const r = Store.getActiveRoom(); r.history.push({ role:'user', variants:[text], currentVariant:0 }); r.lastUpdated = Date.now();
         UI.appendMessageDOM(r.history[r.history.length-1], r.history.length-1); el.value = ''; el.style.height = '45px'; UI.updateActionBtn(); Store.forceSave(); UI.scrollToBottom(true);
+        
+        // 🔥 사용자의 "전송 후에도 꺼지지 않고 설정 유지" 요청 완벽 준수
+        // (체크박스 해제 코드 없음. 주사위 결과는 계속 발송되므로 유저가 원할 때 수동으로 꺼야 함)
+        
         this.runAI();
     },
 
