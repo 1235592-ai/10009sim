@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>10009 시뮬레이터</title>
     <meta name="theme-color" content="#0a0a0a">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2.1">
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
     <div id="global-ai-loader">
         <div class="sparkle-icon">✨</div>
-        <div id="loader-msg">마법 연성 중입니다. 잠시만 기다려주세요...</div>
+        <div id="loader-msg">마법 연성 대기 중</div>
     </div>
 
     <div id="overlay" onclick="UI.closeOverlay()"></div>
@@ -176,11 +176,11 @@
         
         <button id="btn-free-roam" class="btn-ghost" style="margin-bottom:15px;" onclick="Store.setLoc(-1)">📍 문맥에 맡기기 (현재 미분류)</button>
         
-        <details class="acc-sec" open>
+        <details class="acc-sec" open id="det-basic-settings">
             <summary style="color:#38bdf8;">🌌 기본 설정</summary>
             <div style="margin-top:10px;">
                 <div id="w-keyword-list" class="keyword-area"></div>
-                <input type="text" id="w-k-input" class="input-std" placeholder="#키워드 입력 후 스페이스/엔터 (최대 10개)" onkeydown="App.handleKeywordKeyup(event)">
+                <input type="text" id="w-k-input" class="input-std" placeholder="단어 입력 후 띄어쓰기(스페이스) (최대 10개)" oninput="App.handleKeywordInput(event)">
                 
                 <hr style="border-color:#333; margin:15px 0;">
                 <input type="text" class="input-std" id="w-n" placeholder="세계관 이름">
@@ -207,7 +207,7 @@
 
         <div style="margin-top:20px; border-top:1px dashed #333; padding-top:20px;">
             <button id="btn-world-sketch" class="btn-play" style="background:#8b5cf6; color:#fff;" onclick="App.runWorldSketch()">✨ 세계관 초안 스케치</button>
-            <p style="font-size:0.75rem; color:#888; text-align:center; line-height:1.4;">* 등록된 키워드를 바탕으로 세계관의 뼈대를 일괄 생성합니다.<br>* 키워드 칸에 커서를 두고 🪄 버튼을 누르면 추천 키워드가 추가됩니다.</p>
+            <p style="font-size:0.75rem; color:#888; text-align:center; line-height:1.4;">* 등록된 키워드를 바탕으로 세계관의 뼈대를 일괄 생성합니다.<br>* 빈 칸에 커서를 두고 🪄 버튼을 누르면 AI가 세부 내용을 채워줍니다.</p>
         </div>
     </div>
 
