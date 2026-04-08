@@ -1,5 +1,4 @@
 window.Dice = {
-    // 🔥 스탯 텍스트 생성기 (hideValue가 true면 숫자를 아예 날려버림)
     renderOptions: function(chars, hideValue) {
         let html = '';
         chars.forEach(c => {
@@ -17,19 +16,15 @@ window.Dice = {
         const my = w.characters.find(c=>c.id===r.myCharId); 
         const npcs = r.activeCharIds.map(id => w.characters.find(c=>c.id===id)).filter(c=>c&&c.id!=='sys'); 
         
-        // 화면이 다시 그려져도 날아가지 않게 기존 선택값 백업
         const mySel = document.getElementById('dice-my-stat').value;
         const npcSel = document.getElementById('dice-npc-stat').value;
 
-        // 🔥 내 스탯은 무조건 보여줌 (false)
         const myHtml = my ? this.renderOptions([my], false) : '';
         document.getElementById('dice-my-stat').innerHTML = myHtml || `<option value="">스탯 없음</option>`;
         
-        // 🔥 NPC 스탯은 무조건 가림 (true)
         const npcHtml = this.renderOptions(npcs, true);
         document.getElementById('dice-npc-stat').innerHTML = npcHtml || `<option value="">스탯 없음</option>`;
         
-        // 기존 선택값 즉시 복구 (상태 무한 유지)
         if(mySel) document.getElementById('dice-my-stat').value = mySel;
         if(npcSel) document.getElementById('dice-npc-stat').value = npcSel;
         
@@ -63,56 +58,33 @@ window.Dice = {
         return { roll, stat, res, level, margin: stat - roll }; 
     },
 
-    calcCustomRoll: function(expr) {
-        try {
-            let str = expr.replace(/\s+/g, '').toLowerCase();
-            const match = str.match(/^(\d+)d(\d+)(?:([+-])(\d+))?$/);
-            if(!match) return { error: true, msg: "포맷 오류 (예: 2d6 또는 1d20+3)" };
-            
-            let n = parseInt(match[1], 10);
-            let sides = parseInt(match[2], 10);
-            let mod = 0;
-            if(match[3] && match[4]) {
-                mod = parseInt(match[4], 10);
-                if(match[3] === '-') mod = -mod;
-            }
-            
-            if(n < 1 || n > 20) return { error: true, msg: "개수 초과 (1~20개)" };
-            if(sides < 2 || sides > 1000) return { error: true, msg: "면수 오류 (2~1000면)" };
-            
-            let total = 0;
-            let rolls = [];
-            for(let i=0; i<n; i++) {
-                let r = Math.floor(Math.random() * sides) + 1;
-                rolls.push(r);
-                total += r;
-            }
-            total += mod;
-            
-            let detail = `${n}d${sides}` + (mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : ``);
-            let rollStr = rolls.join(' + ');
-            return { error: false, detail, rollStr, mod, total, isSingle: (n === 1) };
-        } catch(e) {
-            return { error: true, msg: "수식 오류" };
-        }
-    },
-
     getDiceResultStr: function() { 
         if(!document.getElementById('dice-enable').checked) return ""; 
         const type = document.getElementById('dice-type').value;
         
         if (type === 'custom') {
-            const expr = document.getElementById('dice-custom-expr').value || "1d20";
             const obj = document.getElementById('dice-custom-obj').value.trim();
-            const res = this.calcCustomRoll(expr);
             
-            if(res.error) return `[🎲 커스텀 굴림: ${res.msg}]\n`;
-            
+            // 🔥 이중 방어: JS단에서 강제 바운딩 (1~20, 2~1000)
+            const n = Math.max(1, Math.min(20, parseInt(document.getElementById('dice-custom-n').value) || 1));
+            const sides = Math.max(2, Math.min(1000, parseInt(document.getElementById('dice-custom-sides').value) || 20));
+
+            let total = 0;
+            let rolls = [];
+            for(let i = 0; i < n; i++) {
+                let r = Math.floor(Math.random() * sides) + 1;
+                rolls.push(r);
+                total += r;
+            }
+
+            const detail = `${n}d${sides}`;
+            const rollStr = rolls.join(' + ');
             const title = obj ? `커스텀 굴림 (${obj})` : `커스텀 굴림`;
-            let resStr = `[🎲 ${title}: ${res.detail} → ${res.rollStr}`;
-            if (res.mod !== 0) resStr += ` ${res.mod > 0 ? '+' : '-'} ${Math.abs(res.mod)}`;
-            if (!res.isSingle || res.mod !== 0) resStr += ` = ${res.total}`;
+            
+            let resStr = `[🎲 ${title}: ${detail} → ${rollStr}`;
+            if (n !== 1) resStr += ` = ${total}`;
             resStr += `]\n`;
+            
             return resStr;
         }
 
@@ -126,7 +98,6 @@ window.Dice = {
             const [i2, n2, val2] = v2.split('|'); const r2 = this.calcRoll(Number(val2)); 
             let winner = '무승부 (판단 필요)'; if(r1.level > r2.level) winner = '플레이어 우위'; else if(r1.level < r2.level) winner = '상대 우위'; else { if(r1.margin > r2.margin) winner = '플레이어 우위'; else if(r1.margin < r2.margin) winner = '상대 우위'; } 
             
-            // 🔥 채팅에 출력될 때는 찐 숫자가 시원하게 공개됨
             return `[⚔️ 대항: ${n1} D100→${r1.roll}/${r1.stat} ${r1.res} vs ${n2} D100→${r2.roll}/${r2.stat} ${r2.res} → ${winner}]\n`; 
         } 
     }
