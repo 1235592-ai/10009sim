@@ -34,7 +34,7 @@ body {
 }
 
 /* =========================================
-   2. Global Components (Overlay, Toast)
+   2. Global Components (Overlay, Toast, Loader)
 ========================================= */
 #overlay {
     position: fixed;
@@ -71,6 +71,37 @@ body {
     transform: translateX(-50%) translateY(0);
     opacity: 1;
     visibility: visible;
+}
+
+#global-ai-loader {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fbbf24;
+    font-weight: bold;
+    font-size: 1.1rem;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s;
+}
+#global-ai-loader.show {
+    opacity: 1;
+    visibility: visible;
+}
+.sparkle-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0% { transform: scale(0.9); opacity: 0.7; }
+    50% { transform: scale(1.1); opacity: 1; text-shadow: 0 0 20px #fbbf24; }
+    100% { transform: scale(0.9); opacity: 0.7; }
 }
 
 /* =========================================
@@ -169,7 +200,7 @@ body {
     padding: 15px;
     margin-bottom: 15px;
     border-left: 4px solid var(--accent-color);
-    word-break: break-all; /* 텍스트 넘침 방어 */
+    word-break: break-all; 
 }
 .lobby-card.recent { border-left-color: var(--danger); }
 .lobby-card-tag {
@@ -324,7 +355,6 @@ header {
 .icon-toggle.active .icon.dice-icon { text-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
 .icon-toggle.active .icon.long-icon { text-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
 
-/* 스위치 토글 디자인 */
 .switch { position: relative; display: inline-block; width: 32px; height: 18px; margin: 0; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .2s; border-radius: 18px; }
@@ -333,7 +363,6 @@ input:checked + .slider { background-color: var(--accent-color); }
 #toggle-dice.active input:checked + .slider { background-color: var(--warning); }
 input:checked + .slider:before { transform: translateX(14px); background-color: #fff; }
 
-/* 책갈피 팝업 창 */
 .bookmark-popover {
     position: absolute;
     bottom: 100%;
@@ -412,14 +441,23 @@ input:checked + .slider:before { transform: translateX(14px); background-color: 
     display: block; 
     box-shadow: -5px 0 15px rgba(0,0,0,0.8);
     overflow-y: auto;
-    padding: 20px;
-    padding-bottom: 80px; 
+    padding: 0 20px 80px 20px; 
     -webkit-overflow-scrolling: touch;
 }
 .panel.open { transform: translateX(0); }
 
-.panel-header { margin-bottom: 20px; }
-.panel-title-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
+.sticky-header {
+    position: sticky;
+    top: 0;
+    background: var(--panel-bg);
+    z-index: 100;
+    padding-top: 20px;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #333;
+}
+
+.panel-title-row { display: flex; justify-content: space-between; align-items: center; }
 .panel-title-row h2 { font-size: 1.3rem; margin: 0; }
 
 .acc-sec { margin-bottom: 15px; background: #1a1a1a; border-radius: 8px; overflow: hidden; }
@@ -430,6 +468,10 @@ input:checked + .slider:before { transform: translateX(14px); background-color: 
 .item-card summary { cursor: pointer; font-weight: bold; outline: none; }
 .folder-box { background: #161616; border: 1px solid #333; padding: 10px; border-radius: 6px; margin-bottom: 15px; }
 .folder-title { display: flex; justify-content: space-between; align-items: center; cursor: pointer; outline: none; }
+
+.keyword-area { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.k-chip { background: #3b82f6; color: #fff; font-size: 0.8rem; padding: 4px 8px; border-radius: 12px; display: flex; align-items: center; gap: 4px; font-weight: bold; }
+.k-chip button { background: none; border: none; color: #fff; cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 0 2px; outline: none; }
 
 .role-badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
 .role-my { background: #0ea5e9; color: #fff; }
@@ -467,7 +509,6 @@ input:checked + .slider:before { transform: translateX(14px); background-color: 
 .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes typing { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-4px); opacity: 1; } }
 
-/* Network Scanning Text */
 .net-entry { background: #111; border-left: 3px solid var(--accent-color); padding: 12px; margin-bottom: 10px; border-radius: 0 6px 6px 0; font-size: 0.9rem; line-height: 1.5; }
 .net-tag { font-size: 0.75rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; background: #333; margin-bottom: 6px; display: inline-block; }
 .net-comment { font-size: 0.85rem; color: #aaa; margin-top: 6px; padding-left: 10px; border-left: 2px solid #444; }
