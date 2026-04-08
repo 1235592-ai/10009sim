@@ -95,9 +95,13 @@
         <div>
             <div class="action-bar-wrapper">
                 <div id="dice-settings-popover" class="bookmark-popover">
+                    <div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #333;">
+                        <div style="font-size:0.75rem; color:#38bdf8; font-weight:bold; margin-bottom:4px;">📝 긴 대화 설정</div>
+                        <div style="font-size:0.75rem; color:#aaa;">아래 아이콘(스위치)을 켜면 AI가 평소보다 상세하고 긴 묘사를 출력합니다.</div>
+                    </div>
+
                     <div style="font-size:0.75rem; color:#fbbf24; font-weight:bold; margin-bottom:6px;">🎲 주사위 굴림 설정</div>
                     <div style="display:flex; flex-direction:column; gap:8px;">
-                        
                         <div style="display:flex; align-items:center; gap:8px;">
                             <select id="dice-type" class="select-std" style="margin:0; padding:6px; width:auto;" onchange="Dice.onChangeType()">
                                 <option value="single">단일 (내 스탯)</option>
@@ -111,22 +115,32 @@
                         
                         <div id="dice-custom-container" style="display:none; flex-direction:column; gap:6px;">
                             <input type="text" id="dice-custom-obj" class="input-std" placeholder="목적 (예: 문 따기)" style="margin:0; padding:6px; width:100%;">
-                            <input type="text" id="dice-custom-expr" class="input-std" placeholder="수식 (예: 1d20)" style="margin:0; padding:6px; width:100%;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <input type="number" id="dice-custom-n" class="input-std" value="1" min="1" max="20" style="margin:0; padding:6px; width:60px; text-align:center;">
+                                <span style="color:#aaa; font-weight:bold; font-size:1.1rem;">d</span>
+                                <input type="number" id="dice-custom-sides" class="input-std" value="20" min="2" max="1000" style="margin:0; padding:6px; width:70px; text-align:center;">
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <button id="btn-action-expand" class="btn-expand" onclick="UI.toggleActionPopover()">+</button>
                 
-                <div class="icon-toggle" id="toggle-long" onclick="UI.toggleActionState('long')">
+                <label class="icon-toggle" id="toggle-long">
                     <span class="icon long-icon">📝</span>
-                    <label class="switch"><input type="checkbox" id="long-response" onclick="event.stopPropagation(); UI.syncActionState('long')"><span class="slider"></span></label>
-                </div>
+                    <div class="switch">
+                        <input type="checkbox" id="long-response" onchange="UI.syncActionState('long')">
+                        <span class="slider"></span>
+                    </div>
+                </label>
                 
-                <div class="icon-toggle" id="toggle-dice" onclick="UI.toggleActionState('dice')">
+                <label class="icon-toggle" id="toggle-dice">
                     <span class="icon dice-icon">🎲</span>
-                    <label class="switch"><input type="checkbox" id="dice-enable" onclick="event.stopPropagation(); UI.syncActionState('dice')"><span class="slider"></span></label>
-                </div>
+                    <div class="switch">
+                        <input type="checkbox" id="dice-enable" onchange="UI.syncActionState('dice')">
+                        <span class="slider"></span>
+                    </div>
+                </label>
             </div>
 
             <div id="input-area">
@@ -229,11 +243,5 @@
     <script src="js/dice.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
-
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW 등록 실패:', err));
-        }
-    </script>
 </body>
 </html>
