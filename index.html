@@ -7,6 +7,25 @@
     <meta name="theme-color" content="#0a0a0a">
     <link rel="stylesheet" href="css/style.css">
     <link rel="manifest" href="manifest.json">
+    <style id="bookmark-ui-styles">
+        .action-bar-wrapper { position: relative; padding: 6px 12px; background: var(--bg-color); border-top: 1px solid var(--border-color); z-index: 10; display: flex; align-items: center; gap: 12px; }
+        .btn-expand { background: #262626; color: white; border: none; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: bold; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .btn-expand.open { transform: rotate(90deg); background: #ef4444; }
+        .icon-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+        .icon-toggle .icon { font-size: 1.1rem; filter: grayscale(100%) opacity(0.4); transition: all 0.2s; }
+        .icon-toggle.active .icon { filter: grayscale(0%) opacity(1); }
+        .icon-toggle.active .icon.dice-icon { text-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
+        .icon-toggle.active .icon.long-icon { text-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
+        .switch { position: relative; display: inline-block; width: 32px; height: 18px; margin: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .2s; border-radius: 18px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: #888; transition: .2s; border-radius: 50%; }
+        input:checked + .slider { background-color: #38bdf8; }
+        #toggle-dice.active input:checked + .slider { background-color: #fbbf24; }
+        input:checked + .slider:before { transform: translateX(14px); background-color: #fff; }
+        .bookmark-popover { position: absolute; bottom: 100%; left: 10px; background: #1a1a1a; border: 1px solid #333; border-bottom: none; border-radius: 12px 12px 0 0; padding: 12px 15px; box-shadow: 0 -4px 15px rgba(0,0,0,0.6); transform: translateY(100%); opacity: 0; visibility: hidden; transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s; z-index: 9; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        .bookmark-popover.open { transform: translateY(0); opacity: 1; visibility: visible; pointer-events: auto; }
+    </style>
 </head>
 <body>
     <div id="overlay" onclick="UI.closeOverlay()"></div>
@@ -92,21 +111,47 @@
 
         <div id="chat-container"></div>
         
-        <div id="dice-tools">
-            <label style="color:#38bdf8; font-weight:bold; white-space:nowrap;"><input type="checkbox" id="long-response">📝 긴 대답</label>
-            <span style="border-left:1px solid #444; height:15px; margin:0 6px;"></span>
-            <label style="color:#fbbf24; font-weight:bold; white-space:nowrap;"><input type="checkbox" id="dice-enable">🎲 판정</label>
-            <select id="dice-type" class="select-std" style="margin:0 4px; padding:2px 4px; width:auto;" onchange="Dice.updateMode()">
-                <option value="single">단일</option><option value="opposed">대항</option>
-            </select>
-            <select id="dice-my-stat" class="select-std" style="margin:0; padding:2px 4px; width:auto;"></select>
-            <span id="dice-vs-txt" style="color:#666; display:none; margin:0 4px;">vs</span>
-            <select id="dice-npc-stat" class="select-std" style="margin:0; padding:2px 4px; width:auto; display:none;"></select>
-        </div>
+        <div>
+            <div class="action-bar-wrapper">
+                <div id="dice-settings-popover" class="bookmark-popover">
+                    <div style="font-size:0.75rem; color:#fbbf24; font-weight:bold; margin-bottom:6px;">🎲 주사위 굴림 설정</div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <select id="dice-type" class="select-std" style="margin:0; padding:6px; width:auto;" onchange="Dice.onChangeType()">
+                                <option value="single">단일 (내 스탯)</option>
+                                <option value="opposed">대항 (vs NPC)</option>
+                                <option value="custom">커스텀 (자유 굴림)</option>
+                            </select>
+                            <select id="dice-my-stat" class="select-std" style="margin:0; padding:6px; width:auto;"></select>
+                            <span id="dice-vs-txt" style="color:#666; display:none; margin:0;">vs</span>
+                            <select id="dice-npc-stat" class="select-std" style="margin:0; padding:6px; width:auto; display:none;"></select>
+                        </div>
+                        
+                        <div id="dice-custom-container" style="display:none; flex-direction:column; gap:6px;">
+                            <input type="text" id="dice-custom-obj" class="input-std" placeholder="목적 (예: 문 따기)" style="margin:0; padding:6px; width:100%;">
+                            <input type="text" id="dice-custom-expr" class="input-std" placeholder="수식 (예: 1d20)" style="margin:0; padding:6px; width:100%;">
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="btn-action-expand" class="btn-expand" onclick="UI.toggleActionPopover()">+</button>
+                
+                <div class="icon-toggle" id="toggle-long" onclick="UI.toggleActionState('long')">
+                    <span class="icon long-icon">📝</span>
+                    <label class="switch"><input type="checkbox" id="long-response" onclick="event.stopPropagation(); UI.syncActionState('long')"><span class="slider"></span></label>
+                </div>
+                
+                <div class="icon-toggle" id="toggle-dice" onclick="UI.toggleActionState('dice')">
+                    <span class="icon dice-icon">🎲</span>
+                    <label class="switch"><input type="checkbox" id="dice-enable" onclick="event.stopPropagation(); UI.syncActionState('dice')"><span class="slider"></span></label>
+                </div>
+            </div>
 
-        <div id="input-area">
-            <textarea id="msg-input" placeholder="대화를 입력하세요." oninput="UI.autoResize(this)" onkeydown="App.handleInputKey(event)"></textarea>
-            <button id="action-btn" onclick="App.handleAction()">▶ 전송</button>
+            <div id="input-area">
+                <textarea id="msg-input" placeholder="대화를 입력하세요." oninput="UI.autoResize(this)" onkeydown="App.handleInputKey(event)"></textarea>
+                <button id="action-btn" onclick="App.handleAction()">▶ 전송</button>
+            </div>
         </div>
     </div>
 
