@@ -21,10 +21,21 @@ window.App = {
     init: async function() {
         await Store.init();
         
+        // 설정 폼 초기화 바인딩
+        const bgEl = document.getElementById('set-lobby-bg');
+        if(bgEl) bgEl.value = Store.state.lobbyBgUrl || '';
+        const apiEl = document.getElementById('set-api-key');
+        if(apiEl) apiEl.value = Store.state.apiKey || '';
+        const modEl = document.getElementById('set-model-name');
+        if(modEl) modEl.value = Store.state.modelName || '';
+
         // 🔥 화면 중첩 버그 수정: 초기 로드 시 뷰 강제 분리 및 기준 History 상태 생성
         history.replaceState({ main: true }, "");
         document.getElementById('game-container').style.display = 'none';
         document.getElementById('lobby-container').style.display = 'flex';
+        
+        // 🔥 초기 진입 시 로비 배경 적용
+        document.body.style.backgroundImage = Store.state.lobbyBgUrl ? `url('${Store.state.lobbyBgUrl}')` : 'none';
 
         window.addEventListener('beforeunload', () => { Store.forceSave(); });
         
@@ -53,6 +64,10 @@ window.App = {
                 Store.state.activeRoomId = null;
                 document.getElementById('game-container').style.display = 'none';
                 document.getElementById('lobby-container').style.display = 'flex';
+                
+                // 🔥 로비로 나올 때 시나리오 배경을 지우고 로비 커스텀 배경 씌우기
+                document.body.style.backgroundImage = Store.state.lobbyBgUrl ? `url('${Store.state.lobbyBgUrl}')` : 'none';
+                
                 UI.renderScenarioList();
             } 
             // 4순위: 로비 화면이라면 앱 종료 확인
@@ -92,7 +107,7 @@ window.App = {
         const r = Store.getActiveRoom(); 
         r.lastUpdated = Date.now(); 
         
-        // 🔥 화면 중첩 버그 수정: 뷰 스위칭 및 상태 푸시
+        // 화면 중첩 버그 수정: 뷰 스위칭 및 상태 푸시
         document.getElementById('lobby-container').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
         history.pushState({ page: 'room' }, ""); 
@@ -114,7 +129,11 @@ window.App = {
         const myChar = w.characters.find(c => c.id === r.myCharId); document.getElementById('header-user-name').innerText = myChar ? myChar.keyword : '무명';
         const actNpcs = r.activeCharIds.map(cid => w.characters.find(c=>c.id===cid)).filter(c=>c&&c.id!=='sys'); document.getElementById('header-npc-names').innerText = actNpcs.length > 0 ? actNpcs.map(c=>c.keyword).join(', ') : 'NPC 없음';
         let locName = "자유 이동 (미분류)"; if(r.currentLocIdx >= 0 && w.locations[r.currentLocIdx]) { const l = w.locations[r.currentLocIdx]; const reg = w.regions.find(rg => rg.id === l.regionId); locName = reg ? `${reg.name} - ${l.name}` : l.name; }
-        document.getElementById('header-loc-name').innerText = `🧭 위치: ` + locName; document.body.style.backgroundImage = w.bgUrl ? `url('${w.bgUrl}')` : 'none'; 
+        document.getElementById('header-loc-name').innerText = `🧭 위치: ` + locName; 
+        
+        // 🔥 시나리오 진입 시 해당 월드의 배경 이미지 씌우기
+        document.body.style.backgroundImage = w.bgUrl ? `url('${w.bgUrl}')` : 'none'; 
+        
         document.getElementById('room-memory-input').value = r.memory || ''; document.getElementById('global-status-input').value = r.globalStatus || '';
         Dice.refreshDiceUI(); UI.updateActionBtn(); 
         
