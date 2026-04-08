@@ -75,15 +75,20 @@ window.App = {
         UI.renderScenarioList(); UI.renderWorldTemplateList(); UI.renderSafetyUI();
     },
 
-    handleKeywordKeyup: function(e) {
-        if(e.key === 'Enter') e.preventDefault();
-        const input = e.target; let val = input.value;
-        if(e.key === 'Enter' || val.includes(' ') || val.includes(',')) {
-            let k = val.replace(/[\s,]/g, '').replace(/#/g, '').trim();
+    // 🔥 한글 스페이스바 버그 해결: oninput 기반 단어 수집
+    handleKeywordInput: function(e) {
+        const input = e.target;
+        let val = input.value;
+        if (val.includes(' ')) {
+            let k = val.replace(/\s/g, '').replace(/#/g, '').trim();
             if(k) {
                 const w = Store.getTargetWorld();
                 if(!w.keywords) w.keywords = [];
-                if(w.keywords.length >= 10) { UI.showToast("키워드는 최대 10개까지입니다."); input.value=''; return; }
+                if(w.keywords.length >= 10) { 
+                    alert("키워드는 최대 10개까지 등록 가능합니다."); 
+                    input.value = ''; 
+                    return; 
+                }
                 if(!w.keywords.includes(k)) w.keywords.push(k);
                 Store.forceSave(); UI.renderKeywords();
             }
@@ -94,14 +99,14 @@ window.App = {
     runWorldSketch: async function() {
         if(!Store.state.apiKey) return alert("API 키를 설정해주세요.");
         const w = Store.getTargetWorld();
-        if(!w.keywords || w.keywords.length === 0) return UI.showToast("먼저 상단에 키워드를 1개 이상 입력해주세요!");
+        if(!w.keywords || w.keywords.length === 0) return alert("먼저 상단에 키워드를 1개 이상 입력해주세요!");
 
         const hasContent = w.name || w.prompt || w.factions.length > 0 || w.lores.length > 0 || w.locations.length > 0;
         if(hasContent) {
             if(!confirm("⚠️ 경고: 기존 데이터가 모두 삭제됩니다.\n정말 덮어쓰고 다시 스케치하시겠습니까?")) return;
         }
 
-        UI.showAILoader("✨ 세계관 뼈대 설계 중...");
+        UI.showAILoader("✨ 세계관 뼈대 설계 중");
         try {
             const data = await API.generateWorldSketch(w.keywords);
             if(!data) throw new Error("데이터 파싱에 실패했습니다.");
@@ -135,14 +140,14 @@ window.App = {
     runMagicGenerator: async function() {
         if(!Store.state.apiKey) return alert("API 키를 설정해주세요.");
         const w = Store.getTargetWorld();
-        if(!w.keywords || w.keywords.length === 0) return UI.showToast("먼저 키워드를 1개 이상 입력해주세요!");
+        if(!w.keywords || w.keywords.length === 0) return alert("먼저 상단에 키워드를 1개 이상 입력해주세요!");
         
         const target = UI.lastFocusedWorldInput;
         if(!target) return;
 
         if (target.type === 'keywords') {
-            if(w.keywords.length >= 10) return UI.showToast("키워드가 이미 10개입니다!");
-            UI.showAILoader("✨ 키워드 확장 중...");
+            if(w.keywords.length >= 10) return alert("키워드가 이미 10개 꽉 찼습니다!");
+            UI.showAILoader("✨ 추천 키워드 발굴 중");
             try {
                 const res = await API.generateMoreKeywords(w.keywords);
                 res.split(',').forEach(k => {
@@ -161,25 +166,25 @@ window.App = {
         
         if (title && !desc) mode = 'desc_only';
         else if (desc) {
-            const isOverwrite = confirm("기존 내용이 있습니다.\n\n[확인]: 내용을 완전히 덮어쓰기\n[취소]: 문맥을 읽고 뒤에 자연스럽게 덧붙이기 (권장)");
+            const isOverwrite = confirm("기존 내용이 있습니다.\n\n[확인]: 내용을 완전히 덮어쓰기\n[취소]: 문맥을 읽고 뒤에 덧붙이기 (추가)");
             mode = isOverwrite ? 'overwrite' : 'append';
         }
 
-        UI.showAILoader(`✨ ${target.typeKor} 연성 중...`);
+        UI.showAILoader(`✨ ${target.typeKor} 연성 중`);
         try {
             const result = await API.generateDetail(target.typeKor, w.keywords, title, desc, mode);
             
             if (mode === 'full') {
-                if(!result) throw new Error("JSON 파싱 실패");
+                if(!result) throw new Error("데이터 구조 파싱 실패");
                 if(target.titleEl && result.title) target.titleEl.value = result.title;
                 if(target.descEl && result.desc) target.descEl.value = result.desc;
             } else {
-                if(!result) throw new Error("응답 생성 실패");
+                if(!result) throw new Error("텍스트 생성 실패");
                 if(target.descEl) target.descEl.value = result;
             }
             
             if(target.descEl) UI.autoResize(target.descEl);
-            Store.saveWorld(); UI.showToast("연성이 완료되었습니다!");
+            Store.saveWorld(); UI.showToast("마법 연성이 완료되었습니다!");
         } catch(e) {
             alert("생성 실패: " + e.message);
         } finally {
