@@ -27,6 +27,20 @@ window.App = {
                 this.isPanelOpen = false; document.querySelectorAll('.panel').forEach(p => p.classList.remove('open')); document.getElementById('overlay').classList.remove('active'); document.querySelectorAll('.modal-base').forEach(m => m.style.display = 'none');
             } else { if (confirm("앱을 종료하시겠습니까?")) { history.back(); } else { history.pushState({ main: true }, ""); } }
         });
+        
+        // 🔥 빈 공간 클릭 시 드로어(팝업) 닫기 이벤트 바인딩
+        document.addEventListener('click', (e) => {
+            const pop = document.getElementById('dice-settings-popover');
+            const btn = document.getElementById('btn-action-expand');
+            if (pop && pop.classList.contains('open')) {
+                if (!pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+                    pop.classList.remove('open');
+                    btn.classList.remove('open');
+                    btn.innerText = '+';
+                }
+            }
+        });
+
         document.getElementById('lobby-container').classList.remove('hidden');
         UI.renderScenarioList(); UI.renderWorldTemplateList(); UI.renderSafetyUI();
     },
@@ -34,9 +48,9 @@ window.App = {
     handleInputKey: function(e) {
         if(e.key === 'Enter' && !e.shiftKey) {
             if(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                return; // 모바일: 줄바꿈 허용
+                return; 
             } else {
-                e.preventDefault(); // PC: 줄바꿈 방지 및 전송
+                e.preventDefault(); 
                 if(!this.isGenerating) this.handleAction();
             }
         }
@@ -68,8 +82,12 @@ window.App = {
 
     handleAction: async function() {
         if(!Store.state.apiKey) return alert("설정 탭에서 API Key를 먼저 입력해주세요!");
-        if(this.isGenerating) return; const el = document.getElementById('msg-input'); let text = el.value.trim(); const diceStr = Dice.getDiceResultStr(); if(!text && !diceStr) text = "(계속)"; else text = diceStr + text;
-        document.getElementById('dice-enable').checked = false; const r = Store.getActiveRoom(); r.history.push({ role:'user', variants:[text], currentVariant:0 }); r.lastUpdated = Date.now();
+        if(this.isGenerating) return; const el = document.getElementById('msg-input'); let text = el.value.trim(); 
+        
+        const diceStr = Dice.getDiceResultStr(); 
+        if(!text && !diceStr) text = "(계속)"; else text = diceStr + text;
+        
+        const r = Store.getActiveRoom(); r.history.push({ role:'user', variants:[text], currentVariant:0 }); r.lastUpdated = Date.now();
         UI.appendMessageDOM(r.history[r.history.length-1], r.history.length-1); el.value = ''; el.style.height = '45px'; UI.updateActionBtn(); Store.forceSave(); UI.scrollToBottom(true);
         this.runAI();
     },
