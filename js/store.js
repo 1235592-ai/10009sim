@@ -1,7 +1,7 @@
 window.Store = {
     VERSION: 100,
     state: {
-        apiKey: '', modelName: 'gemini-3.1-flash-lite-preview',
+        apiKey: '', modelName: 'gemini-3.1-flash-lite-preview', lobbyBgUrl: '',
         safety: { violence: false, discrimination: false, sexual: false, abuse: false, selfharm: false, drugs: false, marysue: false, obsession: false, gore: false, romance: false },
         roomTags: [], worlds: [], rooms: [], activeRoomId: null, activeWorldId: null
     },
@@ -33,6 +33,7 @@ window.Store = {
         if (master) {
             this.state.apiKey = master.apiKey || ''; 
             this.state.modelName = master.modelName || 'gemini-3.1-flash-lite-preview';
+            this.state.lobbyBgUrl = master.lobbyBgUrl || '';
             this.state.safety = Object.assign({ violence: false, discrimination: false, sexual: false, abuse: false, selfharm: false, drugs: false, marysue: false, obsession: false, gore: false, romance: false }, master.safety || {}); 
             this.state.roomTags = master.roomTags || [];
             this.state.worlds = await this.dbGetAll('worlds');
@@ -50,7 +51,7 @@ window.Store = {
         if(this.saveTimeout) clearTimeout(this.saveTimeout);
         this.saveTimeout = setTimeout(() => {
             if(!this.db) return;
-            const master = { id: 'main', apiKey: this.state.apiKey, modelName: this.state.modelName, safety: this.state.safety, roomTags: this.state.roomTags };
+            const master = { id: 'main', apiKey: this.state.apiKey, modelName: this.state.modelName, safety: this.state.safety, roomTags: this.state.roomTags, lobbyBgUrl: this.state.lobbyBgUrl };
             try {
                 const tx = this.db.transaction(['master', 'worlds', 'rooms'], 'readwrite');
                 tx.objectStore('master').put(master);
@@ -65,7 +66,18 @@ window.Store = {
         }, 300);
     },
     
-    saveSettings: function() { this.state.apiKey = document.getElementById('set-api-key').value; this.state.modelName = document.getElementById('set-model-name').value || 'gemini-3.1-flash-lite-preview'; this.forceSave(); UI.showToast("설정이 저장되었습니다."); },
+    saveSettings: function() { 
+        this.state.apiKey = document.getElementById('set-api-key').value; 
+        this.state.modelName = document.getElementById('set-model-name').value || 'gemini-3.1-flash-lite-preview'; 
+        this.state.lobbyBgUrl = document.getElementById('set-lobby-bg').value.trim();
+        this.forceSave(); 
+        
+        // 로비에 있을 경우 즉시 배경 업데이트
+        if(!this.state.activeRoomId) {
+            document.body.style.backgroundImage = this.state.lobbyBgUrl ? `url('${this.state.lobbyBgUrl}')` : 'none';
+        }
+        UI.showToast("설정이 저장되었습니다."); 
+    },
     
     getActiveRoom: function() { return this.state.rooms.find(r => r.id === this.state.activeRoomId); },
     getTargetWorld: function() { if(this.state.activeRoomId) return this.getActiveRoom().worldInstance; return this.state.worlds.find(w => w.id === this.state.activeWorldId); },
@@ -148,7 +160,7 @@ window.Store = {
 
     exportData: function() { 
         if(!confirm("모든 설정과 시나리오 데이터를 백업 파일(JSON)로 다운로드하시겠습니까?")) return;
-        const exp = { apiKey: this.state.apiKey, modelName: this.state.modelName, safety: this.state.safety, roomTags: this.state.roomTags, worlds: this.state.worlds, rooms: this.state.rooms }; 
+        const exp = { apiKey: this.state.apiKey, modelName: this.state.modelName, safety: this.state.safety, roomTags: this.state.roomTags, lobbyBgUrl: this.state.lobbyBgUrl, worlds: this.state.worlds, rooms: this.state.rooms }; 
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(exp)], {type:'application/json'})); a.download = `10009SIM_Backup_${Date.now()}.json`; a.click(); 
     },
     exportChatToTxt: function() { 
@@ -167,7 +179,7 @@ window.Store = {
                 
                 this.db = await this.openDB();
                 const tx = this.db.transaction(['master', 'worlds', 'rooms'], 'readwrite');
-                tx.objectStore('master').put({id:'main', apiKey:st.apiKey||'', modelName:st.modelName||'gemini-3.1-flash-lite-preview', safety:st.safety||this.state.safety, roomTags:st.roomTags||[]});
+                tx.objectStore('master').put({id:'main', apiKey:st.apiKey||'', modelName:st.modelName||'gemini-3.1-flash-lite-preview', safety:st.safety||this.state.safety, roomTags:st.roomTags||[], lobbyBgUrl:st.lobbyBgUrl||''});
                 if(st.worlds) st.worlds.forEach(w => tx.objectStore('worlds').put(w)); 
                 if(st.rooms) st.rooms.forEach(rm => tx.objectStore('rooms').put(rm));
                 tx.oncomplete = () => { alert("복원 완료! 앱을 재시작합니다."); window.location.reload(); };
