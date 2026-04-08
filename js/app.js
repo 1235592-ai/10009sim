@@ -47,14 +47,23 @@ window.App = {
     
     editWorldTemplate: function(id) { Store.state.activeRoomId = null; Store.state.activeWorldId = id; UI.togglePanel('world-panel'); },
 
-    loadActiveRoom: function() {
+    loadActiveRoom: function(preserveScroll = false) {
         const r = Store.getActiveRoom(); if(!r) return; const w = r.worldInstance;
         const myChar = w.characters.find(c => c.id === r.myCharId); document.getElementById('header-user-name').innerText = myChar ? myChar.keyword : '무명';
         const actNpcs = r.activeCharIds.map(cid => w.characters.find(c=>c.id===cid)).filter(c=>c&&c.id!=='sys'); document.getElementById('header-npc-names').innerText = actNpcs.length > 0 ? actNpcs.map(c=>c.keyword).join(', ') : 'NPC 없음';
         let locName = "자유 이동 (미분류)"; if(r.currentLocIdx >= 0 && w.locations[r.currentLocIdx]) { const l = w.locations[r.currentLocIdx]; const reg = w.regions.find(rg => rg.id === l.regionId); locName = reg ? `${reg.name} - ${l.name}` : l.name; }
         document.getElementById('header-loc-name').innerText = `🧭 위치: ` + locName; document.body.style.backgroundImage = w.bgUrl ? `url('${w.bgUrl}')` : 'none'; 
         document.getElementById('room-memory-input').value = r.memory || ''; document.getElementById('global-status-input').value = r.globalStatus || '';
-        Dice.refreshDiceUI(); UI.updateActionBtn(); document.getElementById('chat-container').innerHTML = ''; r.history.forEach((m, idx) => UI.appendMessageDOM(m, idx)); UI.scrollToBottom(true);
+        Dice.refreshDiceUI(); UI.updateActionBtn(); 
+        
+        const container = document.getElementById('chat-container');
+        const st = container.scrollTop; 
+        
+        container.innerHTML = ''; 
+        r.history.forEach((m, idx) => UI.appendMessageDOM(m, idx)); 
+        
+        if (preserveScroll) container.scrollTop = st; 
+        else UI.scrollToBottom(true);
     },
 
     handleAction: async function() {
@@ -72,7 +81,8 @@ window.App = {
         else {
             if(r.history[tIdx].variants.length >= 5) { r.history[tIdx].variants.shift(); r.history[tIdx].currentVariant = r.history[tIdx].variants.length; } 
             else r.history[tIdx].currentVariant = r.history[tIdx].variants.length; 
-            r.history[tIdx].variants.push(""); r.history[tIdx].charIds = [...r.activeCharIds]; this.loadActiveRoom();
+            r.history[tIdx].variants.push(""); r.history[tIdx].charIds = [...r.activeCharIds]; 
+            this.loadActiveRoom(true); 
         }
         
         const msgObj = r.history[tIdx]; let msgDiv = document.querySelector(`.message.ai[data-idx="${tIdx}"]`); if(!msgDiv) msgDiv = UI.appendMessageDOM(msgObj, tIdx);
@@ -144,7 +154,6 @@ window.App = {
     saveRoomInfo: function() { const r = Store.state.rooms.find(x => x.id === document.getElementById('edit-room-id').value); if(r) { r.name = document.getElementById('edit-room-name').value.trim() || '시나리오'; Store.forceSave(); UI.renderScenarioList(); } UI.closeModal('edit-room-modal'); },
     cloneRoom: function(id) { const t = Store.state.rooms.find(r => r.id === id); if(confirm("복제하시겠습니까? (대화는 초기화됨)")) { const nr = JSON.parse(JSON.stringify(t)); nr.id = 'r_'+Date.now(); nr.name = t.name + " (새 회차)"; nr.history = []; nr.memory = ''; nr.networkArchive = ''; nr.lastUpdated = Date.now(); const idMap = this.remapWorldIds(nr.worldInstance); if(idMap[nr.myCharId]) nr.myCharId = idMap[nr.myCharId]; nr.activeCharIds = nr.activeCharIds.map(cid => idMap[cid] || cid); Store.state.rooms.unshift(nr); Store.forceSave(); UI.renderScenarioList(); UI.showToast("복제 완료"); } },
     
-    // DB에서 완전히 삭제
     deleteRoom: function(id) { 
         if(confirm("삭제하시겠습니까?")) { 
             Store.state.rooms = Store.state.rooms.filter(x=>x.id!==id); 
