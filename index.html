@@ -9,6 +9,11 @@
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
+    <div id="global-ai-loader">
+        <div class="sparkle-icon">✨</div>
+        <div id="loader-msg">마법 연성 중입니다. 잠시만 기다려주세요...</div>
+    </div>
+
     <div id="overlay" onclick="UI.closeOverlay()"></div>
     <div id="toast-noti" class="sys-noti"></div>
 
@@ -40,7 +45,7 @@
             <h3>🔑 API 설정</h3>
             <input type="password" id="set-api-key" class="input-std" placeholder="Gemini API Key" onchange="Store.saveSettings()">
             
-            <select class="select-std" style="margin-bottom: 5px;" onchange="const m = document.getElementById('set-model-name'); if(this.value) { m.value = this.value; Store.saveSettings(); }">
+            <select id="model-preset-sel" class="select-std" style="margin-bottom: 5px;" onchange="if(this.value) document.getElementById('set-model-name').value = this.value; Store.saveSettings();">
                 <option value="">▼ 추천 모델 선택 (터치)</option>
                 <option value="gemini-3.1-flash-lite-preview">gemini-3.1-flash-lite-preview (가볍고 빠름)</option>
                 <option value="gemini-3.1-flash">gemini-3.1-flash (표준)</option>
@@ -158,19 +163,32 @@
     </div>
 
     <div id="world-panel" class="panel">
-        <div class="panel-header">
-            <div class="panel-title-row"><h2 id="world-panel-title">🗺️ 세계관 설정</h2><button class="close-btn-new" onclick="history.back()">✕</button></div>
-            <button class="btn-main" style="background:#16a34a; margin-top:12px; margin-bottom:0;" onclick="Store.saveWorld()">💾 변경사항 저장</button>
+        <div class="sticky-header">
+            <div class="panel-title-row">
+                <h2 id="world-panel-title">🗺️ 세계관 설정</h2>
+                <button class="close-btn-new" onclick="history.back()">✕</button>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="btn-main" style="background:#16a34a; margin-bottom:0; flex:1;" onclick="Store.saveWorld()">💾 변경사항 저장</button>
+                <button id="magic-btn" class="btn-main" style="background:#6366f1; margin-bottom:0; width:50px; opacity:0.3; transition:all 0.3s ease;" onclick="App.runMagicGenerator()" disabled title="자동 연성">🪄</button>
+            </div>
         </div>
+        
         <button id="btn-free-roam" class="btn-ghost" style="margin-bottom:15px;" onclick="Store.setLoc(-1)">📍 문맥에 맡기기 (현재 미분류)</button>
+        
         <details class="acc-sec" open>
             <summary style="color:#38bdf8;">🌌 기본 설정</summary>
             <div style="margin-top:10px;">
+                <div id="w-keyword-list" class="keyword-area"></div>
+                <input type="text" id="w-k-input" class="input-std" placeholder="#키워드 입력 후 스페이스/엔터 (최대 10개)" onkeydown="App.handleKeywordKeyup(event)">
+                
+                <hr style="border-color:#333; margin:15px 0;">
                 <input type="text" class="input-std" id="w-n" placeholder="세계관 이름">
                 <textarea class="area-std auto-resize" id="w-d" placeholder="프롬프트/배경" oninput="UI.autoResize(this);"></textarea>
                 <input type="text" class="input-std" id="w-url" placeholder="배경 이미지 URL">
             </div>
         </details>
+        
         <details class="acc-sec">
             <summary style="color:#60a5fa;">🚩 세력 (집단)</summary>
             <div id="world-factions-list" style="margin-top:10px;"></div>
@@ -186,12 +204,20 @@
             <div id="world-regions-list" style="margin-top:10px;"></div>
             <button class="btn-ghost" onclick="Store.addRegion()">+ 🏔️ 새 지역(대분류) 추가</button>
         </details>
+
+        <div style="margin-top:20px; border-top:1px dashed #333; padding-top:20px;">
+            <button id="btn-world-sketch" class="btn-play" style="background:#8b5cf6; color:#fff;" onclick="App.runWorldSketch()">✨ 세계관 초안 스케치</button>
+            <p style="font-size:0.75rem; color:#888; text-align:center; line-height:1.4;">* 등록된 키워드를 바탕으로 세계관의 뼈대를 일괄 생성합니다.<br>* 키워드 칸에 커서를 두고 🪄 버튼을 누르면 추천 키워드가 추가됩니다.</p>
+        </div>
     </div>
 
     <div id="char-panel" class="panel">
-        <div class="panel-header">
-            <div class="panel-title-row"><h2>👤 인물 관리</h2><button class="close-btn-new" onclick="history.back()">✕</button></div>
-            <button class="btn-main" style="background:#16a34a; margin-top:12px;" onclick="Store.saveCharacters()">💾 인물 일괄 저장</button>
+        <div class="sticky-header">
+            <div class="panel-title-row">
+                <h2>👤 인물 관리</h2>
+                <button class="close-btn-new" onclick="history.back()">✕</button>
+            </div>
+            <button class="btn-main" style="background:#16a34a; margin-top:15px; margin-bottom:0;" onclick="Store.saveCharacters()">💾 인물 일괄 저장</button>
         </div>
         <div style="display:flex; gap:10px; margin-bottom:15px;">
             <button class="btn-ghost" style="flex:1;" onclick="Store.addCharacter()">+ 새 인물</button>
@@ -204,7 +230,12 @@
     </div>
 
     <div id="sys-panel" class="panel">
-        <div class="panel-header"><div class="panel-title-row"><h2>🖥️ 시스템 보드</h2><button class="close-btn-new" onclick="history.back()">✕</button></div></div>
+        <div class="sticky-header">
+            <div class="panel-title-row">
+                <h2>🖥️ 시스템 보드</h2>
+                <button class="close-btn-new" onclick="history.back()">✕</button>
+            </div>
+        </div>
         
         <h3 style="color:#ef4444; margin-top:10px;">⚠️ 현재 세계 상태</h3>
         <textarea id="global-status-input" class="area-std auto-resize" placeholder="서사의 절대 규칙이나 현재 디버프 상태 등을 적어두세요." oninput="UI.autoResize(this); Store.updateRoomState('globalStatus', this.value);"></textarea>
