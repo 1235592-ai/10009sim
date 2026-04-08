@@ -44,11 +44,10 @@ window.UI = {
         else if (App.isPanelOpen) { history.back(); }
     },
 
-    // 🔥 브라우저 뒤로가기(History)와 완벽 연동되는 팝업 컨트롤러
     toggleActionPopover: function() {
         const pop = document.getElementById('dice-settings-popover');
         if(pop.classList.contains('open')) {
-            history.back(); // 열려있을 땐 뒤로가기 이벤트를 발생시켜 popstate에서 닫게 함
+            history.back(); 
         } else {
             history.pushState({ popover: true }, ""); 
             this.internalOpenPopover();
@@ -132,7 +131,12 @@ window.UI = {
             selfharm: "자해 및 자살", drugs: "음주 및 약물", marysue: "과잉 찬양", obsession: "소유욕 및 집착",
             gore: "공포 및 기괴함", romance: "로맨스 전개"
         };
-        container.innerHTML = Object.keys(Store.state.safety).map(key => `<label style="display:flex; align-items:center; gap:10px; margin-bottom:8px; cursor:pointer; font-size:0.85rem;"><input type="checkbox" ${Store.state.safety[key] ? 'checked' : ''} onchange="Store.state.safety.${key}=this.checked; Store.saveSettings();"> ${labels[key]}</label>`).join('');
+        
+        // 🔥 수정됨: 과거에 쓰이던 삭제된 설정값이 남아있어 undefined가 뜨는 것을 방어
+        container.innerHTML = Object.keys(Store.state.safety).map(key => {
+            if (!labels[key]) return ''; 
+            return `<label style="display:flex; align-items:center; gap:10px; margin-bottom:8px; cursor:pointer; font-size:0.85rem;"><input type="checkbox" ${Store.state.safety[key] ? 'checked' : ''} onchange="Store.state.safety.${key}=this.checked; Store.saveSettings();"> ${labels[key]}</label>`;
+        }).join('');
     },
 
     renderScenarioList: function() {
