@@ -15,7 +15,14 @@ window.UI = {
     scrollToBottom: function(instant = false) { const c = document.getElementById('chat-container'); if(instant) c.scrollTop = c.scrollHeight; else c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }); },
     showToast: function(msg) { const t = document.getElementById('toast-noti'); t.innerText=msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); },
     
-    showAILoader: function(msg) { const ld = document.getElementById('global-ai-loader'); const txt = document.getElementById('loader-msg'); if(ld) { if(txt) txt.innerText = msg; ld.classList.add('show'); } },
+    showAILoader: function(msg) { 
+        const ld = document.getElementById('global-ai-loader'); 
+        const txt = document.getElementById('loader-msg'); 
+        if(ld) { 
+            if(txt) txt.innerHTML = msg + '<span class="anim-dots"></span>'; 
+            ld.classList.add('show'); 
+        } 
+    },
     hideAILoader: function() { const ld = document.getElementById('global-ai-loader'); if(ld) ld.classList.remove('show'); },
 
     switchTab: function(id, e) { document.querySelectorAll('.lobby-tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.lobby-content').forEach(c=>c.classList.remove('active')); e.target.classList.add('active'); document.getElementById(id).classList.add('active'); if(id === 'tab-scenarios') this.renderScenarioList(); if(id === 'tab-worlds') this.renderWorldTemplateList(); },
@@ -81,7 +88,12 @@ window.UI = {
             App.isPanelOpen = true;
             
             document.querySelectorAll('.panel').forEach(el => el.classList.remove('open')); 
-            p.querySelectorAll('details[open]').forEach(d => d.removeAttribute('open'));
+            
+            // 🔥 기본 설정 닫힘 방어: id가 det-basic-settings인 요소는 open 속성 유지
+            p.querySelectorAll('details[open]').forEach(d => {
+                if(d.id !== 'det-basic-settings') d.removeAttribute('open');
+            });
+            
             p.classList.add('open'); 
             document.getElementById('overlay').classList.add('active');
             
