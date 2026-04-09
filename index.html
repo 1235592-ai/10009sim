@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>10009 시뮬레이터</title>
     <meta name="theme-color" content="#0a0a0a">
-    <link rel="stylesheet" href="css/style.css?v=3.2">
+    <link rel="stylesheet" href="css/style.css?v=3.5">
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -60,7 +60,7 @@
             
             <hr style="border-color:#333; margin:20px 0;">
             
-            <details class="acc-sec">
+            <details class="acc-sec" open>
                 <summary style="color:#ef4444;">🛡️ 안전 설정 (검열)</summary>
                 <div style="margin-top:10px; padding: 0 15px 15px 15px;">
                     <p style="font-size:0.8rem; color:#aaa; margin-bottom:15px; line-height:1.5;">
@@ -166,7 +166,7 @@
         <div class="sticky-header">
             <div class="panel-title-row">
                 <h2 id="world-panel-title">🗺️ 세계관 설정</h2>
-                <button class="close-btn-new" onclick="history.back()">✕</button>
+                <button class="close-btn-new" onclick="UI.closeAllPanels()">✕</button>
             </div>
             <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
                 <button class="btn-main" style="background:#16a34a; margin-bottom:0; flex:1; min-width:120px;" onclick="Store.saveWorld()">💾 변경사항 저장</button>
@@ -215,7 +215,7 @@
         <div class="sticky-header">
             <div class="panel-title-row">
                 <h2>👤 인물 관리</h2>
-                <button class="close-btn-new" onclick="history.back()">✕</button>
+                <button class="close-btn-new" onclick="UI.closeAllPanels()">✕</button>
             </div>
             <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
                 <button class="btn-main" style="background:#16a34a; margin-bottom:0; flex:1; min-width:120px;" onclick="Store.saveCharacters()">💾 인물 일괄 저장</button>
@@ -243,7 +243,7 @@
         <div class="sticky-header">
             <div class="panel-title-row">
                 <h2>🖥️ 시스템 보드</h2>
-                <button class="close-btn-new" onclick="history.back()">✕</button>
+                <button class="close-btn-new" onclick="UI.closeAllPanels()">✕</button>
             </div>
         </div>
         
