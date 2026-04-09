@@ -35,7 +35,7 @@ window.UI = {
         this.activeModal = id;
         document.getElementById(id).style.display = 'block'; 
         document.getElementById('overlay').classList.add('active'); 
-        history.pushState({ modal: id }, ""); 
+        App.safePushState({ modal: id }, ""); 
     },
     closeModal: function(id) { 
         this.activeModal = null;
@@ -55,7 +55,7 @@ window.UI = {
     toggleActionPopover: function() {
         const pop = document.getElementById('dice-settings-popover');
         if(pop.classList.contains('open')) { history.back(); } 
-        else { history.pushState({ popover: true }, ""); this.internalOpenPopover(); }
+        else { App.safePushState({ popover: true }, ""); this.internalOpenPopover(); }
     },
     internalOpenPopover: function() {
         const pop = document.getElementById('dice-settings-popover');
@@ -87,8 +87,8 @@ window.UI = {
         if(p.classList.contains('open')) { 
             if(App.isPanelOpen) history.back(); 
         } else {
-            if (pop && pop.classList.contains('open')) { this.internalClosePopover(); history.replaceState({ panel: true }, ""); } 
-            else { if(!App.isPanelOpen) { history.pushState({ panel: true }, ""); } }
+            if (pop && pop.classList.contains('open')) { this.internalClosePopover(); App.safeReplaceState({ panel: true }, ""); } 
+            else { if(!App.isPanelOpen) { App.safePushState({ panel: true }, ""); } }
             App.isPanelOpen = true;
             
             document.querySelectorAll('.panel').forEach(el => el.classList.remove('open')); 
@@ -100,7 +100,6 @@ window.UI = {
             p.classList.add('open'); 
             document.getElementById('overlay').classList.add('active');
             
-            // 🔥 패널 열 때마다 마법봉 포커스 강제 클리어
             if(id==='world-panel') { 
                 if(Store.state.activeRoomId) { document.getElementById('world-panel-title').innerText = "🗺️ 인게임 세계 설정"; document.getElementById('btn-free-roam').style.display = 'block'; } 
                 else { document.getElementById('world-panel-title').innerText = "🌌 템플릿 원본 편집"; document.getElementById('btn-free-roam').style.display = 'none'; } 
