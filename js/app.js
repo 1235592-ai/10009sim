@@ -42,31 +42,63 @@ window.App = {
         if(worldPanel) {
             worldPanel.addEventListener('focusin', (e) => {
                 if(e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
-                    let type = 'unknown'; let typeKor = ''; let titleEl = null; let descEl = null;
+                    let type = 'unknown'; let typeKor = ''; let titleEl = null; let descEl = null; let secretEl = null;
 
-                    if(e.target.id === 'w-k-input') {
-                        type = 'keywords';
-                    } else if(e.target.id === 'w-n' || e.target.id === 'w-d') {
+                    if(e.target.id === 'w-k-input') { type = 'keywords'; } 
+                    else if(e.target.id === 'w-n' || e.target.id === 'w-d') {
                         type = 'basic'; typeKor = '기본 설정';
                         titleEl = document.getElementById('w-n'); descEl = document.getElementById('w-d');
                     } else {
                         const itemCard = e.target.closest('.item-card, .folder-box, .card-faction');
                         if(itemCard) {
                             titleEl = itemCard.querySelector('input[type="text"]');
-                            descEl = itemCard.querySelector('textarea');
-                            if(itemCard.classList.contains('card-faction')) { type = 'faction'; typeKor = '세력'; }
-                            else if(e.target.id.includes('lf-')) { type = 'loreFolder'; typeKor = '지식(대분류)'; }
-                            else if(e.target.id.includes('l-')) { type = 'lore'; typeKor = '지식(상세)'; }
-                            else if(e.target.id.includes('reg-')) { type = 'region'; typeKor = '지역(대분류)'; }
-                            else if(e.target.id.includes('loc-')) { type = 'location'; typeKor = '장소(상세)'; }
+                            if(itemCard.classList.contains('card-faction')) { 
+                                type = 'faction'; typeKor = '세력'; 
+                                descEl = itemCard.querySelector('textarea[id^="f-d-"]');
+                                secretEl = itemCard.querySelector('textarea[id^="f-s-"]');
+                            }
+                            else {
+                                descEl = itemCard.querySelector('textarea');
+                                if(e.target.id.includes('lf-')) { type = 'loreFolder'; typeKor = '지식(대분류)'; }
+                                else if(e.target.id.includes('l-')) { type = 'lore'; typeKor = '지식(상세)'; }
+                                else if(e.target.id.includes('reg-')) { type = 'region'; typeKor = '지역(대분류)'; }
+                                else if(e.target.id.includes('loc-')) { type = 'location'; typeKor = '장소(상세)'; }
+                            }
                         }
                     }
-
                     if(type !== 'unknown') {
-                        UI.lastFocusedWorldInput = { type, typeKor, titleEl, descEl };
+                        UI.lastFocusedWorldInput = { type, typeKor, titleEl, descEl, secretEl };
                         const mBtn = document.getElementById('magic-btn');
                         if(mBtn) { mBtn.disabled = false; mBtn.style.opacity = '1'; mBtn.style.boxShadow = '0 0 10px rgba(99, 102, 241, 0.6)'; }
                     }
+                }
+            });
+        }
+
+        const charPanel = document.getElementById('char-panel');
+        if(charPanel) {
+            charPanel.addEventListener('focusin', (e) => {
+                const el = e.target;
+                if(el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                    if(el.id === 'char-filter-sel') return;
+                    const charCard = el.closest('.card-char');
+                    if(!charCard) return;
+
+                    const charId = charCard.id.replace('det-c-', '');
+                    const cBtn = document.getElementById('char-magic-btn');
+                    let type = null;
+
+                    if (el.id.startsWith('c-n-')) {
+                        if(cBtn) { cBtn.disabled = true; cBtn.style.opacity = '0.3'; cBtn.style.boxShadow = 'none'; }
+                        return;
+                    } else if (el.id.startsWith('c-d-')) { type = 'desc'; } 
+                    else if (el.id.startsWith('c-s-')) { type = 'secret'; } 
+                    else if (el.closest('.stat-row')) { type = 'stats'; } 
+                    else if (el.closest('.rep-row')) { type = 'reputation'; } 
+                    else { return; }
+
+                    UI.lastFocusedCharInput = { type, charId, el };
+                    if(cBtn) { cBtn.disabled = false; cBtn.style.opacity = '1'; cBtn.style.boxShadow = '0 0 10px rgba(99, 102, 241, 0.6)'; }
                 }
             });
         }
@@ -75,23 +107,27 @@ window.App = {
         UI.renderScenarioList(); UI.renderWorldTemplateList(); UI.renderSafetyUI();
     },
 
-    // 🔥 한글 스페이스바 버그 해결: oninput 기반 단어 수집
     handleKeywordInput: function(e) {
         const input = e.target;
         let val = input.value;
-        if (val.includes(' ')) {
-            let k = val.replace(/\s/g, '').replace(/#/g, '').trim();
-            if(k) {
-                const w = Store.getTargetWorld();
-                if(!w.keywords) w.keywords = [];
-                if(w.keywords.length >= 10) { 
-                    alert("키워드는 최대 10개까지 등록 가능합니다."); 
-                    input.value = ''; 
-                    return; 
+        if (val.includes(' ') || val.includes(',')) {
+            const parts = val.split(/[\s,]+/);
+            const w = Store.getTargetWorld();
+            if(!w.keywords) w.keywords = [];
+            
+            let added = false;
+            let fullLimit = false;
+
+            parts.forEach(p => {
+                let k = p.replace(/#/g, '').trim();
+                if(k && !w.keywords.includes(k)) {
+                    if(w.keywords.length < 10) { w.keywords.push(k); added = true; } 
+                    else { fullLimit = true; }
                 }
-                if(!w.keywords.includes(k)) w.keywords.push(k);
-                Store.forceSave(); UI.renderKeywords();
-            }
+            });
+
+            if (added) { Store.forceSave(); UI.renderKeywords(); }
+            if (fullLimit) { UI.showToast("키워드는 최대 10개까지입니다."); }
             input.value = '';
         }
     },
@@ -115,14 +151,12 @@ window.App = {
             w.prompt = data.prompt || '';
             w.factions = []; w.loreFolders = []; w.lores = []; w.regions = []; w.locations = [];
 
-            if(data.factions) data.factions.forEach(f => w.factions.push({ id:'f_'+Date.now()+Math.random().toString(36).substr(2), name: f.name, desc: f.desc, secret: '' }));
-            
+            if(data.factions) data.factions.forEach(f => w.factions.push({ id:'f_'+Date.now()+Math.random().toString(36).substr(2), name: f.name, desc: f.desc, secret: f.secret || '' }));
             if(data.lores && data.lores.length > 0) {
                 const lfId = 'lf_'+Date.now();
                 w.loreFolders.push({ id: lfId, name: '기초 지식', desc: '세계관 필수 상식' });
                 data.lores.forEach(l => w.lores.push({ id:'l_'+Date.now()+Math.random().toString(36).substr(2), folderId: lfId, keyword: l.name, desc: l.desc, triggerLocId: '' }));
             }
-            
             if(data.locations && data.locations.length > 0) {
                 const regId = 'reg_'+Date.now();
                 w.regions.push({ id: regId, name: '주요 지역', desc: '중심 무대' });
@@ -130,11 +164,8 @@ window.App = {
             }
 
             Store.forceSave(); UI.renderWorld(); UI.showToast("스케치가 완료되었습니다!");
-        } catch(e) {
-            alert("스케치 실패: " + e.message);
-        } finally {
-            UI.hideAILoader();
-        }
+        } catch(e) { alert("스케치 실패: " + e.message); } 
+        finally { UI.hideAILoader(); }
     },
 
     runMagicGenerator: async function() {
@@ -162,34 +193,121 @@ window.App = {
 
         const title = target.titleEl ? target.titleEl.value.trim() : '';
         const desc = target.descEl ? target.descEl.value.trim() : '';
+        const secret = target.secretEl ? target.secretEl.value.trim() : '';
         let mode = 'full';
         
-        if (title && !desc) mode = 'desc_only';
-        else if (desc) {
+        if (title && !desc && !secret) mode = 'desc_only';
+        else if (desc || secret) {
             const isOverwrite = confirm("기존 내용이 있습니다.\n\n[확인]: 내용을 완전히 덮어쓰기\n[취소]: 문맥을 읽고 뒤에 덧붙이기 (추가)");
             mode = isOverwrite ? 'overwrite' : 'append';
         }
 
         UI.showAILoader(`✨ ${target.typeKor} 연성 중`);
         try {
-            const result = await API.generateDetail(target.typeKor, w.keywords, title, desc, mode);
+            const dataObj = { title, desc, secret, hasSecretField: !!target.secretEl };
+            const result = await API.generateDetail(target.typeKor, w, dataObj, mode);
             
+            if (!result) throw new Error("데이터 구조 파싱 실패");
+
             if (mode === 'full') {
-                if(!result) throw new Error("데이터 구조 파싱 실패");
                 if(target.titleEl && result.title) target.titleEl.value = result.title;
                 if(target.descEl && result.desc) target.descEl.value = result.desc;
+                if(target.secretEl && result.secret) target.secretEl.value = result.secret;
             } else {
-                if(!result) throw new Error("텍스트 생성 실패");
-                if(target.descEl) target.descEl.value = result;
+                if (target.secretEl) {
+                    if(result.desc) target.descEl.value = result.desc;
+                    if(result.secret) target.secretEl.value = result.secret;
+                } else {
+                    if(target.descEl) target.descEl.value = result;
+                }
             }
             
             if(target.descEl) UI.autoResize(target.descEl);
+            if(target.secretEl) UI.autoResize(target.secretEl);
+            
             Store.saveWorld(); UI.showToast("마법 연성이 완료되었습니다!");
-        } catch(e) {
-            alert("생성 실패: " + e.message);
-        } finally {
-            UI.hideAILoader();
+        } catch(e) { alert("생성 실패: " + e.message); } 
+        finally { UI.hideAILoader(); }
+    },
+
+    runNewCharGen: async function() {
+        if(!Store.state.apiKey) return alert("API 키를 설정해주세요.");
+        const w = Store.getTargetWorld();
+        if(!w.keywords || w.keywords.length === 0) return alert("먼저 세계관 탭에서 키워드를 1개 이상 입력해주세요!");
+
+        UI.showAILoader("✨ 세계관 맞춤 인물 창조 중");
+        try {
+            const data = await API.generateNewCharacter(w);
+            if(!data || !data.keyword) throw new Error("캐릭터 생성에 실패했습니다.");
+
+            const newChar = {
+                id: 'c_' + Date.now(),
+                keyword: data.keyword,
+                desc: data.desc || '',
+                secret: data.secret || '',
+                stats: data.stats || [{n:'체력', v:50, active:true}],
+                reputation: data.reputation || [],
+                factionIds: [],
+                triggerLocId: '',
+                isHidden: false
+            };
+
+            w.characters.unshift(newChar);
+            Store.forceSave();
+            UI.renderCharacters();
+            UI.showToast(`[${data.keyword}] 캐릭터가 생성되었습니다!`);
+        } catch(e) { alert("생성 실패: " + e.message); } 
+        finally { UI.hideAILoader(); }
+    },
+
+    runCharMagic: async function() {
+        if(!Store.state.apiKey) return alert("API 키를 설정해주세요.");
+        const w = Store.getTargetWorld();
+        if(!w.keywords || w.keywords.length === 0) return alert("먼저 세계관 탭에서 키워드를 1개 이상 입력해주세요!");
+
+        const target = UI.lastFocusedCharInput;
+        if(!target) return;
+        const c = w.characters.find(x => x.id === target.charId);
+        if(!c) return;
+
+        let mode = 'full';
+        if (target.type === 'desc' || target.type === 'secret') {
+            const val = target.el.value.trim();
+            if (val) {
+                const isOverwrite = confirm("기존 내용이 있습니다.\n\n[확인]: 내용을 완전히 덮어쓰기\n[취소]: 문맥을 읽고 뒤에 덧붙이기 (추가)");
+                mode = isOverwrite ? 'overwrite' : 'append';
+            }
+            UI.showAILoader(`✨ 인물 ${target.type === 'desc' ? '상세설정' : '비밀'} 연성 중`);
+        } else if (target.type === 'stats' || target.type === 'reputation') {
+            UI.showAILoader(`✨ 맞춤 ${target.type === 'stats' ? '스탯' : '성향'} 스캔 중`);
+            mode = 'add_array';
         }
+
+        try {
+            const res = await API.generateCharDetail(target.type, w, c, target.el.value, mode);
+            if (!res) throw new Error("생성된 데이터가 없습니다.");
+
+            if (target.type === 'desc') { 
+                c.desc = res; target.el.value = res; UI.autoResize(target.el); 
+            }
+            else if (target.type === 'secret') { 
+                c.secret = res; target.el.value = res; UI.autoResize(target.el); 
+            }
+            else if (target.type === 'stats') {
+                if(!c.stats) c.stats = [];
+                c.stats.push({ n: res.n || '신규스탯', v: res.v || 50, active: true });
+                Store.forceSave(); UI.renderCharacters();
+            } 
+            else if (target.type === 'reputation') {
+                if(!c.reputation) c.reputation = [];
+                c.reputation.push({ id: 'rep_'+Date.now(), leftName: res.leftName || 'L', rightName: res.rightName || 'R', value: res.value || 0 });
+                Store.forceSave(); UI.renderCharacters();
+            }
+
+            Store.saveCharacters();
+            UI.showToast("연성이 완료되었습니다!");
+        } catch(e) { alert("연성 실패: " + e.message); } 
+        finally { UI.hideAILoader(); }
     },
 
     handleInputKey: function(e) {
@@ -246,85 +364,5 @@ window.App = {
         try { await API.streamGemini(contents, sysPrompt, (chunk) => { fullText += chunk; msgObj.variants[msgObj.currentVariant] = fullText; textEl.innerHTML = UI.formatMsg(fullText, 'ai'); }); } 
         catch(e) { if(!fullText.trim()) { msgObj.variants[msgObj.currentVariant] = "[오류] " + e.message; textEl.innerHTML = UI.formatMsg(msgObj.variants[msgObj.currentVariant], 'ai'); } } 
         finally { msgDiv.appendChild(UI.createCtrls(tIdx)); if(r.history.length > 0 && r.history.length % 20 === 0) this.triggerAutoSummary(); this.isGenerating = false; document.getElementById('action-btn').disabled = false; UI.updateActionBtn(); Store.forceSave(); UI.scrollToBottom(true); }
-    },
-
-    triggerAutoSummary: async function() {
-        const r = Store.getActiveRoom(); const histText = r.history.slice(-20).map(m=>m.variants[m.currentVariant]).join("\n");
-        try { const text = await API.callGemini([{role:'user', parts:[{text: `다음 대화를 3줄로 요약해:\n\n${histText}`}]}], r.worldInstance.prompt); let mem = r.memory || ""; mem += (mem ? "\n\n" : "") + "[자동 요약]\n" + text; const blocks = mem.split('[자동 요약]'); if(blocks.length > 4) mem = blocks[0] + '[자동 요약]' + blocks.slice(-3).join('[자동 요약]'); r.memory = mem; document.getElementById('room-memory-input').value = r.memory; Store.updateRoomState('memory', r.memory); UI.showToast("✨ 기억이 요약 저장되었습니다."); } catch(e) {}
-    },
-
-    processStatUpdate: async function(idx) {
-        if(!Store.state.apiKey) return alert("API Key 필요!");
-        const r = Store.getActiveRoom(); const w = r.worldInstance; const msg = r.history[idx].variants[r.history[idx].currentVariant];
-        let statChanged = false; let repChanged = false;
-        const tChars = w.characters.filter(c => r.activeCharIds.includes(c.id) || c.id === r.myCharId);
-        const cStatStr = tChars.map(c => c.stats&&c.stats.length ? `${c.keyword}: ` + c.stats.map(s=>`${s.n}(${s.v})`).join(', ') : null).filter(x=>x).join('\n');
-        if (cStatStr) {
-            UI.showToast("📊 1/2: 스탯 분석 중...");
-            try {
-                const text = await API.callGemini([{role:'user',parts:[{text:`스탯 증감 추정 후 JSON 배열로만 반환해. 포맷: [{"charName":"이름", "statName":"체력", "newValue":최종}]\n[현재]\n${cStatStr}\n[텍스트] ${msg}`}]}], null, {temp:0.1, jsonMode:true});
-                API.parseAIJsonRaw(text).forEach(item => { let c = tChars.find(x => x.keyword === item.charName || x.keyword.includes(item.charName)); if(c) { const s = c.stats.find(x => x.n === item.statName); if(s && confirm(`[스탯 변동]\n${c.keyword}의 [${s.n}]을 ${s.v} -> ${item.newValue} 변경?`)) { s.v = item.newValue; statChanged = true; } } });
-            } catch(e) {}
-        }
-        const cRepStr = tChars.map(c => c.reputation&&c.reputation.length ? `${c.keyword}: ` + c.reputation.map(rep => `${rep.id}(${rep.leftName||'L'}↔${rep.rightName||'R'}:현재${rep.value})`).join(', ') : null).filter(x=>x).join('\n');
-        if(cRepStr) {
-            UI.showToast("⚖️ 2/2: 평판 분석 중...");
-            try {
-                const text = await API.callGemini([{role:'user',parts:[{text:`평판 변동 추정 후 JSON 배열로만 반환해. 포맷: [{"charName":"이름", "repId":"ID", "change":-1,0,1}]\n좌:-1, 우:1\n[현재]\n${cRepStr}\n[텍스트] ${msg}`}]}], null, {temp:0.1, jsonMode:true});
-                API.parseAIJsonRaw(text).forEach(item => { let c = tChars.find(x => x.keyword === item.charName || x.keyword.includes(item.charName)); if(c) { const rep = c.reputation.find(x => x.id === item.repId); if(rep && item.change !== 0) { let newVal = Math.max(-5, Math.min(5, rep.value + item.change)); const dirStr = item.change > 0 ? `[${rep.rightName||'우측'}] 방향으로 +${item.change}` : `[${rep.leftName||'좌측'}] 방향으로 ${item.change}`; if(confirm(`[성향 변동]\n${c.keyword} 성향이 ${dirStr} 된 듯.\n${rep.value} -> ${newVal} 적용?`)) { rep.value = newVal; repChanged = true; } } } });
-            } catch(e) {}
-        }
-        if(statChanged || repChanged) { Store.forceSave(); UI.renderCharacters(); Dice.refreshDiceUI(); UI.showToast("스탯/성향 갱신 완료!"); } else UI.showToast("적용할 변동 사항 없음");
-    },
-
-    rewindRoom: function(idx) { if(this.isGenerating) return; if(confirm("이후 대화를 지우고 여기서 다시 시작할까요?")) { Store.getActiveRoom().history = Store.getActiveRoom().history.slice(0, idx + 1); Store.forceSave(); this.loadActiveRoom(); } },
-    branch: function(idx) { if(this.isGenerating) return; const r = Store.getActiveRoom(); const h = JSON.parse(JSON.stringify(r.history.slice(0,idx))).map(m=>({role:m.role, variants:[m.variants[m.currentVariant]], currentVariant:0, charIds:m.charIds})); const nr = { ...JSON.parse(JSON.stringify(r)), id:'r_'+Date.now(), name:'[분기] '+r.name, history:h, lastUpdated:Date.now() }; Store.state.rooms.unshift(nr); Store.state.activeRoomId = nr.id; Store.forceSave(); UI.renderScenarioList(); this.loadActiveRoom(); UI.showToast("새 분기(채팅방)로 이동했습니다."); this.runAI(); },
-
-    extractTemplate: function(roomId) { 
-        if(!confirm("이 시나리오의 현재 세계관(인물, 장소 등)을 새로운 템플릿으로 추출하시겠습니까?")) return;
-        const r = Store.state.rooms.find(x => x.id === roomId); 
-        if(!r) return;
-        const wClone = JSON.parse(JSON.stringify(r.worldInstance));
-        this.remapWorldIds(wClone);
-        wClone.id = 'w_' + Date.now();
-        wClone.name = wClone.name + " (추출본)";
-        Store.state.worlds.unshift(wClone);
-        Store.forceSave();
-        UI.showToast("새 템플릿으로 추출되었습니다.");
-    },
-
-    updateRoomTag: function(id, val) { const t = Store.state.roomTags.find(x=>x.id===id); if(t && val.trim()) { t.name = val.trim(); Store.forceSave(); UI.renderScenarioList(); } },
-    deleteRoomTag: function(id) { if(!confirm("영구 삭제하시겠습니까?")) return; Store.state.roomTags = Store.state.roomTags.filter(x=>x.id!==id); Store.state.rooms.forEach(r => { r.tagIds = r.tagIds.filter(tid=>tid!==id); }); Store.forceSave(); UI.renderScenarioList(); UI.renderTagManageList(); },
-    addRoomTag: function(rId, selEl, e) { e.stopPropagation(); const tId = selEl.value; if(!tId) return; selEl.value = ''; const r = Store.state.rooms.find(x => x.id === rId); if(!r.tagIds.includes(tId)) { r.tagIds.push(tId); Store.forceSave(); UI.renderScenarioList(); } },
-    removeRoomTag: function(rId, tId, e) { e.stopPropagation(); const r = Store.state.rooms.find(x => x.id === rId); r.tagIds = r.tagIds.filter(id => id !== tId); Store.forceSave(); UI.renderScenarioList(); },
-    editRoomInfo: function(id) { document.getElementById('edit-room-id').value = id; document.getElementById('edit-room-name').value = Store.state.rooms.find(x => x.id === id).name; UI.openModal('edit-room-modal'); },
-    saveRoomInfo: function() { const r = Store.state.rooms.find(x => x.id === document.getElementById('edit-room-id').value); if(r) { r.name = document.getElementById('edit-room-name').value.trim() || '시나리오'; Store.forceSave(); UI.renderScenarioList(); } UI.closeModal('edit-room-modal'); },
-    cloneRoom: function(id) { const t = Store.state.rooms.find(r => r.id === id); if(confirm("복제하시겠습니까? (대화는 초기화됨)")) { const nr = JSON.parse(JSON.stringify(t)); nr.id = 'r_'+Date.now(); nr.name = t.name + " (새 회차)"; nr.history = []; nr.memory = ''; nr.networkArchive = ''; nr.lastUpdated = Date.now(); const idMap = this.remapWorldIds(nr.worldInstance); if(idMap[nr.myCharId]) nr.myCharId = idMap[nr.myCharId]; nr.activeCharIds = nr.activeCharIds.map(cid => idMap[cid] || cid); Store.state.rooms.unshift(nr); Store.forceSave(); UI.renderScenarioList(); UI.showToast("복제 완료"); } },
-    
-    deleteRoom: function(id) { 
-        if(confirm("삭제하시겠습니까?")) { 
-            Store.state.rooms = Store.state.rooms.filter(x=>x.id!==id); 
-            Store.removeRoomDB(id); 
-            Store.forceSave(); 
-            UI.renderScenarioList(); 
-        } 
-    },
-    
-    createNewRoom: function() { 
-        const wId = document.getElementById('new-room-world-sel').value; 
-        if(!wId) return alert("세계관을 먼저 선택하세요."); 
-        const sourceWorld = Store.state.worlds.find(w => w.id === wId); 
-        const worldClone = JSON.parse(JSON.stringify(sourceWorld)); 
-        this.remapWorldIds(worldClone); 
-        let myC = worldClone.characters.find(c => c.id !== 'sys' && !c.isHidden); 
-        if(!myC) { myC = {id:'c_'+Date.now(), keyword:'플레이어', desc:'주인공.', secret:'', stats:[{n:'체력', v:50, active:true}], reputation:[], factionIds:[], triggerLocId:'', isHidden:false}; worldClone.characters.push(myC); } 
-        Store.state.rooms.unshift({ id: 'r_'+Date.now(), name: document.getElementById('new-room-name').value.trim() || '새 시나리오', lastUpdated: Date.now(), worldInstance: worldClone, myCharId: myC.id, activeCharIds: ['sys'], history: [], memory: '', globalStatus: '', currentLocIdx: -1, networkArchive: '', tagIds: [] }); 
-        Store.forceSave(); UI.renderScenarioList(); UI.closeModal('new-room-modal'); UI.showToast("생성 완료"); 
-    },
-    
-    importChar: function(wId, cId) { const sW = Store.state.worlds.find(w=>w.id===wId); const sC = sW.characters.find(c=>c.id===cId); const dW = Store.getTargetWorld(); if(dW.characters.some(c=>c.keyword===sC.keyword)) return alert("같은 이름 존재"); dW.characters.push({ id:'c_'+Date.now(), keyword:sC.keyword, desc:sC.desc, secret:sC.secret, stats:JSON.parse(JSON.stringify(sC.stats)), reputation:JSON.parse(JSON.stringify(sC.reputation||[])), factionIds:[], triggerLocId:'', isHidden:false }); Store.forceSave(); UI.showToast(sC.keyword+" 불러오기 완료."); UI.renderCharacters(); },
-    
-    remapWorldIds: function(w) { const idMap = {}; const gen = (pfx) => pfx + '_' + Date.now() + Math.random().toString(36).substr(2,5); w.regions.forEach(x => { const o=x.id; x.id=gen('reg'); idMap[o]=x.id; }); w.locations.forEach(x => { const o=x.id; x.id=gen('loc'); idMap[o]=x.id; }); w.factions.forEach(x => { const o=x.id; x.id=gen('f'); idMap[o]=x.id; }); w.loreFolders.forEach(x => { const o=x.id; x.id=gen('lf'); idMap[o]=x.id; }); w.lores.forEach(x => { const o=x.id; x.id=gen('l'); idMap[o]=x.id; }); w.characters.forEach(x => { if(x.id !== 'sys') { const o=x.id; x.id=gen('c'); idMap[o]=x.id; } if(x.reputation) x.reputation.forEach(r => { r.id = gen('rep'); }); }); w.locations.forEach(x => { if(idMap[x.regionId]) x.regionId = idMap[x.regionId]; }); w.lores.forEach(x => { if(idMap[x.triggerLocId]) x.triggerLocId = idMap[x.triggerLocId]; if(idMap[x.folderId]) x.folderId = idMap[x.folderId]; }); w.characters.forEach(x => { if(idMap[x.triggerLocId]) x.triggerLocId = idMap[x.triggerLocId]; if(x.factionIds) x.factionIds = x.factionIds.map(fid => idMap[fid] || fid); }); return idMap; }
+    }
 };
-
-window.onload = async () => { await window.App.init(); };
