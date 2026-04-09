@@ -31,120 +31,83 @@ window.API = {
         return data.candidates[0].content.parts[0].text;
     },
 
-    // 🔥 모든 찌꺼기와 생 줄바꿈을 완벽 방어하는 무적의 JSON 파서
+    // 🔥 완벽하게 재설계된 무적의 JSON 파서
     parseAIJsonRaw: function(text) {
         if (!text) return null;
-        let clean = text.replace(/```[a-z]*\n?/ig, '').replace(/```/g, '').trim();
+        let clean = text.replace(/```json/ig, '').replace(/```/ig, '').trim();
+        
+        // 1차 시도: 깔끔한 형태일 경우 바로 파싱
         try { return JSON.parse(clean); } catch(e) {}
         
+        // 2차 시도: 앞뒤 텍스트가 섞여 있거나 찌꺼기가 남은 경우 괄호 추적
         try {
-            let firstBrace = clean.indexOf('{'); let firstBracket = clean.indexOf('[');
+            let firstBrace = clean.indexOf('{');
+            let firstBracket = clean.indexOf('[');
             let startIdx = -1, endIdx = -1;
 
+            // 객체({})인지 배열([])인지 가장 겉면의 괄호를 정확히 판단
             if (firstBrace !== -1 && firstBracket !== -1) {
-                if (firstBrace < firstBracket) { startIdx = firstBrace; endIdx = clean.lastIndexOf('}'); } 
-                else { startIdx = firstBracket; endIdx = clean.lastIndexOf(']'); }
-            } else if (firstBrace !== -1) { startIdx = firstBrace; endIdx = clean.lastIndexOf('}'); } 
-            else if (firstBracket !== -1) { startIdx = firstBracket; endIdx = clean.lastIndexOf(']'); }
+                if (firstBrace < firstBracket) {
+                    startIdx = firstBrace; endIdx = clean.lastIndexOf('}');
+                } else {
+                    startIdx = firstBracket; endIdx = clean.lastIndexOf(']');
+                }
+            } else if (firstBrace !== -1) {
+                startIdx = firstBrace; endIdx = clean.lastIndexOf('}');
+            } else if (firstBracket !== -1) {
+                startIdx = firstBracket; endIdx = clean.lastIndexOf(']');
+            }
 
             if (startIdx !== -1 && endIdx !== -1) {
                 let sub = clean.substring(startIdx, endIdx + 1);
-                sub = sub.replace(/,\s*([\]}])/g, '$1'); 
-                // 파싱 브레이커인 포맷되지 않은 생 줄바꿈, 탭을 전부 공백으로 압착
-                sub = sub.replace(/[\n\r\t]/g, ' '); 
+                // AI의 고질적인 문법 오류인 배열/객체 끝부분의 콤마 찌꺼기 제거
+                sub = sub.replace(/,\s*([\]}])/g, '$1');
+                // 파싱에 치명적인 제어문자(보이지 않는 특수문자) 삭제
+                sub = sub.replace(/[\u0000-\u0019]+/g, ""); 
                 return JSON.parse(sub);
             }
             return null;
-        } catch (err) { 
-            console.error("JSON 파싱 치명적 오류:", err, "원본:", text);
-            return null; 
+        } catch (err) {
+            console.error("강제 파싱 실패:", err, "\n원본:", text);
+            return null;
         }
     },
 
-    _buildWorldContextForChar: function(w) {
-        let ctx = `[세계관 이름]: ${w.name}\n[키워드]: ${(w.keywords||[]).join(', ')}\n[배경 요약]: ${w.prompt}\n`;
-        const facs = w.factions.map(f => f.name).join(', ');
-        if(facs) ctx += `[주요 세력]: ${facs}\n`;
-        return ctx;
-    },
-
     generateWorldSketch: async function(keywords) {
-        const p = `제공된 핵심 키워드: [${keywords.join(', ')}]\n이 키워드들을 바탕으로 매우 흥미롭고 개연성 있는 세계관의 뼈대를 설계해라. 오직 JSON 객체만 반환할 것.\n포맷:\n{\n  "name": "세계관의 이름",\n  "prompt": "세계관의 전반적인 배경 요약 (300자 내외)",\n  "factions": [{"name": "세력명", "desc": "설명", "secret": "숨겨진 비밀/흑막"}],\n  "lores": [{"name": "지식/설정명", "desc": "설명"}],\n  "locations": [{"name": "장소명", "desc": "설명"}]\n}\n※ 세력, 지식, 장소는 각각 정확히 3개씩 작성할 것.`;
-        const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관 창조 마스터입니다. 어떠한 인사말도 없이 JSON 객체만 출력하십시오.", {temp: 0.8, jsonMode: true});
+        const p = `제공된 핵심 키워드: [${keywords.join(', ')}]\n이 키워드들을 바탕으로 매우 흥미롭고 개연성 있는 세계관의 뼈대를 설계해라. 오직 JSON 객체만 반환할 것.\n포맷:\n{\n  "name": "세계관의 이름",\n  "prompt": "세계관의 전반적인 배경 요약 (300자 내외)",\n  "factions": [{"name": "세력명", "desc": "설명"}],\n  "lores": [{"name": "지식/설정명", "desc": "설명"}],\n  "locations": [{"name": "장소명", "desc": "설명"}]\n}\n※ 세력, 지식, 장소는 각각 정확히 3개씩 작성할 것.`;
+        const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관 창조 마스터.", {temp: 0.8, jsonMode: true});
         return this.parseAIJsonRaw(text);
     },
 
     generateMoreKeywords: async function(keywords) {
-        const p = `현재 키워드: [${keywords.join(', ')}]\n지시: 위 키워드들이 암시하는 '장르'와 '분위기'를 완벽하게 파악해서, 이 세계관을 더 구체화할 수 있는 핵심 키워드 3개를 제안해.\n주의: 기존 키워드가 현대, SF, 무협 등이라면 그 장르에 절대적으로 맞출 것. 기존 키워드와 중복 금지.\n출력: 다른 설명 없이 오직 콤마(,)로 구분된 단어 3개만 반환해.`;
-        return await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관 창조 마스터입니다. 인사말 없이 결과 단어들만 출력하세요.", {temp: 0.9});
+        const p = `현재 키워드: [${keywords.join(', ')}]\n세계관을 더 매력적으로 확장하기 위해 어울리는 핵심 키워드 3개를 추가로 제안해. 기존과 중복 금지. 다른 설명 없이 오직 콤마(,)로 구분된 단어 3개만 반환해. (예: 마법, 제국, 아카데미)`;
+        return await this.callGemini([{role:'user', parts:[{text: p}]}], null, {temp: 0.9});
     },
 
-    generateDetail: async function(typeStr, w, data, mode) {
-        let p = `[세계관 이름]: ${w.name}\n[배경 요약]: ${w.prompt}\n[핵심 키워드]: ${(w.keywords||[]).join(', ')}\n타겟 항목: ${typeStr}\n`;
-        const hasSec = data.hasSecretField;
+    generateDetail: async function(typeStr, keywords, title, desc, mode) {
+        let p = `세계관 전체 키워드: [${keywords.join(', ')}]\n타겟 항목: ${typeStr}\n`;
         
         if (mode === 'full') {
-            p += `\n지시: 이 세계관의 문맥에 완벽히 녹아드는 타겟 항목의 '이름(title)'과 '상세 설정(desc)'${hasSec ? ", 그리고 '숨겨진 비밀(secret)'" : ""}을 창작해라. 내용은 300자 이상 아주 구체적으로 적을 것.\n포맷: {"title": "이름", "desc": "상세 내용"${hasSec ? ', "secret": "비밀 설정"' : ''}}`;
-            const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관 창조 마스터입니다.", {temp: 0.8, jsonMode: true});
+            p += `\n지시: 이 항목의 '이름(title)'과 '상세 설정(desc)'을 모두 창작해서 JSON 객체로 반환해라. 내용은 300자 이상 아주 구체적으로 적을 것.\n포맷: {"title": "이름", "desc": "상세 내용"}`;
+            const text = await this.callGemini([{role:'user', parts:[{text: p}]}], null, {temp: 0.8, jsonMode: true});
             return this.parseAIJsonRaw(text);
         } 
         else if (mode === 'desc_only' || mode === 'overwrite') {
-            p += `\n현재 타겟 이름: ${data.title}\n\n지시: 위 이름과 세계관 문맥을 바탕으로 이 항목의 상세 설정${hasSec ? "과 숨겨진 비밀" : ""}을 새롭게 창작해라.\n`;
-            if (hasSec) {
-                p += `포맷: {"desc": "상세 내용", "secret": "비밀 설정"} (JSON 객체로 반환할 것)`;
-                const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관 창조 마스터입니다.", {temp: 0.8, jsonMode: true});
-                return this.parseAIJsonRaw(text);
-            } else {
-                p += `다른 수식어 없이 순수 텍스트로 내용만 반환할 것. (300자 이상 구체적으로)`;
-                return await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관 창조 마스터입니다. 인사말 없이 순수 텍스트만 출력하세요.", {temp: 0.8});
-            }
+            p += `\n현재 이름: ${title}\n\n지시: 위 이름과 키워드를 바탕으로 이 항목의 상세 설정을 작성해라. 다른 수식어 없이 순수 텍스트로 내용만 반환할 것. (300자 이상 구체적으로)`;
+            return await this.callGemini([{role:'user', parts:[{text: p}]}], null, {temp: 0.8});
         } 
         else if (mode === 'append') {
-            p += `\n현재 타겟 이름: ${data.title}\n현재까지의 내용:\n${data.desc}\n`;
-            if(hasSec) p += `현재까지의 비밀:\n${data.secret}\n`;
-
-            p += `\n지시: 세계관 문맥과 위 기존 내용들을 파악하고, 그 뒤에 자연스럽게 이어지는 심화 설정${hasSec ? "과 비밀" : ""}을 추가해라. 반드시 '기존 내용 + 새로 추가된 내용'이 하나로 합쳐진 전체 완성본을 반환할 것.\n`;
-            if (hasSec) {
-                p += `포맷: {"desc": "합쳐진 전체 상세 내용", "secret": "합쳐진 전체 비밀 설정"} (JSON 객체로 반환할 것)`;
-                const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관 창조 마스터입니다.", {temp: 0.8, jsonMode: true});
-                return this.parseAIJsonRaw(text);
-            } else {
-                p += `다른 수식어 없이 순수 텍스트만 반환.`;
-                return await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관 창조 마스터입니다. 인사말 없이 순수 텍스트만 출력하세요.", {temp: 0.8});
-            }
+            p += `\n현재 이름: ${title}\n현재까지의 내용:\n${desc}\n\n지시: 위 내용의 문맥을 파악하고, 그 뒤에 자연스럽게 이어지는 설정을 추가로 작성해라. 반드시 '기존 내용 + 새로 추가된 내용'이 하나로 합쳐진 전체 완성본을 반환할 것. 다른 수식어 없이 순수 텍스트만 반환.`;
+            return await this.callGemini([{role:'user', parts:[{text: p}]}], null, {temp: 0.8});
         }
     },
 
-    generateNewCharacter: async function(w) {
-        const ctx = this._buildWorldContextForChar(w);
-        const p = `다음 세계관 설정을 바탕으로, 이야기에 가장 극적으로 얽힐 수 있는 매력적이고 입체적인 조연(NPC) 1명을 창조해라.\n\n${ctx}\n\n오직 JSON 객체만 반환할 것.\n포맷:\n{\n  "keyword": "이름",\n  "desc": "외관, 성격, 능력, 세계관 내 역할 등 상세 설정 (300자 이상)",\n  "secret": "이 인물의 숨겨진 흑막, 과거, 또는 개인적인 비밀 (150자 이상)",\n  "stats": [\n    {"n": "스탯명1(예:근력)", "v": 1~100사이 수치},\n    {"n": "스탯명2", "v": 1~100사이 수치},\n    {"n": "스탯명3", "v": 1~100사이 수치}\n  ],\n  "reputation": [\n    {"leftName": "성향A(예:혼돈)", "rightName": "성향B(예:질서)", "value": -5~5사이 수치}\n  ]\n}`;
-        const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 매력적인 캐릭터를 창조하는 소설가입니다. 인사말 없이 JSON만 출력하세요.", {temp: 0.9, jsonMode: true});
+    // 🔥 세계관 맞춤 캐릭터 연성 프롬프트 추가
+    generateCharacter: async function(worldData) {
+        const p = `다음 세계관 설정을 바탕으로, 이 세계에 자연스럽게 녹아드는 매력적이고 입체적인 새로운 인물 1명을 창작해라. 오직 JSON 객체만 반환할 것.\n\n[세계관 정보]\n- 세계관 이름: ${worldData.name}\n- 핵심 키워드: [${worldData.keywords.join(', ')}]\n- 세계관 배경 요약: ${worldData.prompt}\n- 존재하는 세력들: ${worldData.factions.map(f => f.name).join(', ') || '없음'}\n\n[출력 포맷 및 지시사항 (반드시 JSON)]\n{\n  "keyword": "인물 이름 (또는 이명)",\n  "desc": "인물의 외형, 성격, 과거사, 그리고 현재의 목적 (300자 이상 아주 구체적으로)",\n  "secret": "이 인물이 남들에게 숨기고 있는 치명적인 비밀이나 약점 (100자 내외)",\n  "stats": [\n    {"n": "주요 스탯1 (세계관에 어울리는 능력치명, 예: 무력, 지력, 해킹 등)", "v": 10~100 사이 숫자},\n    {"n": "주요 스탯2", "v": 10~100 사이 숫자},\n    {"n": "주요 스탯3", "v": 10~100 사이 숫자}\n  ]\n}\n※ 스탯은 반드시 세계관 분위기에 맞는 이름으로 3개 생성할 것.`;
+
+        const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 세계관에 완벽히 어울리는 입체적인 캐릭터를 창조하는 마스터.", {temp: 0.9, jsonMode: true});
         return this.parseAIJsonRaw(text);
-    },
-
-    generateCharDetail: async function(type, w, c, currentText, mode) {
-        const ctx = this._buildWorldContextForChar(w);
-        let p = `세계관 정보:\n${ctx}\n\n타겟 인물 이름: ${c.keyword}\n현재까지의 상세설정: ${c.desc}\n현재까지의 비밀: ${c.secret}\n\n`;
-
-        if (type === 'desc' || type === 'secret') {
-            const korType = type === 'desc' ? '상세 설정(외관/성격/능력)' : '숨겨진 비밀';
-            if (mode === 'overwrite' || mode === 'full') {
-                p += `지시: 위 세계관과 인물 문맥에 맞춰 이 인물의 '${korType}'을 새롭게 창작해라. 순수 텍스트만 반환 (300자 이상 아주 구체적으로).`;
-            } else if (mode === 'append') {
-                p += `지시: 위 인물의 '${korType}' 항목에 쓰여진 다음 내용의 문맥을 읽고, 뒤에 자연스럽게 이어지는 설정을 추가해라. 반드시 '기존 내용 + 새 내용'이 합쳐진 전체 완성본을 텍스트로만 반환.\n[기존 내용]:\n${currentText}`;
-            }
-            return await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 매력적인 캐릭터를 창조하는 소설가입니다. 인사말 없이 순수 텍스트만 반환하세요.", {temp: 0.8});
-        }
-        else if (type === 'stats') {
-            p += `지시: 이 인물의 특성과 세계관을 고려하여, 새롭게 추가할 가장 적절한 '스탯(능력치)' 1개와 그 예상 수치(1~100)를 제안해라. 기존과 겹치지 않게. 오직 JSON 객체만 반환.\n포맷: {"n": "스탯명", "v": 75}`;
-            const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 매력적인 캐릭터를 창조하는 소설가입니다. 인사말 없이 JSON만 반환하세요.", {temp: 0.8, jsonMode: true});
-            return this.parseAIJsonRaw(text);
-        }
-        else if (type === 'reputation') {
-            p += `지시: 이 인물의 특성과 세계관을 고려하여, 가치관이나 세력 관계를 나타내는 '성향 축' 1개와 현재 상태값(-5~5)을 제안해라. (예: 좌측은 '이타적', 우측은 '이기적', 값은 3). 오직 JSON 객체만 반환.\n포맷: {"leftName": "좌측성향", "rightName": "우측성향", "value": 3}`;
-            const text = await this.callGemini([{role:'user', parts:[{text: p}]}], "당신은 매력적인 캐릭터를 창조하는 소설가입니다. 인사말 없이 JSON만 반환하세요.", {temp: 0.8, jsonMode: true});
-            return this.parseAIJsonRaw(text);
-        }
     },
 
     statToDesc: function(val) { if(val >= 90) return "초인"; if(val >= 80) return "전문가"; if(val >= 70) return "우수"; if(val >= 60) return "양호"; if(val >= 40) return "보통"; if(val >= 20) return "미숙"; return "최악"; },
@@ -197,7 +160,7 @@ window.API = {
         if(Store.state.safety.marysue) ruleLines.push("⚠️ [성장물 절대 규칙] 주인공 띄워주기 및 먼치킨 취급 절대 금지. 모든 NPC는 주인공의 현재 스탯만큼만 무미건조하게 평가하며, 주인공이 실력으로 증명하기 전까지는 철저히 하찮게 보거나 무시할 것.");
         if(Store.state.safety.obsession) ruleLines.push("⚠️ [관계 절대 규칙] 감금, 감시, 스토킹, 비윤리적 소유욕 등 범죄적 집착 묘사 절대 불가. 모든 캐릭터는 타인의 사적 영역과 자유 의지를 철저히 존중하는 성숙한 어른으로 행동할 것.");
         if(Store.state.safety.gore) ruleLines.push("내장 노출 등 불쾌한 기괴함이나 고어 묘사 금지. 괴물이나 적을 묘사할 때는 징그러움보다는 위협적인 분위기와 압도감 조성에만 집중할 것.");
-        if(Store.state.safety.romance) ruleLines.push("⚠️ [로맨스 원천 차단] 모든 NPC는 주인공에게 성애적 감정을 절대 느끼지 않으며 연애 플래그 성립 불가. 철저히 이해관계에 얽힌 비즈니스 파트너나 선을 긋는 동료로만 대할 것.");
+        if(Store.state.safety.romance) ruleLines.push("⚠️ [로맨스 원천 차단] 모든 NPC는 주인공에게 성애적 감정을 절대 느끼지 않으며 연애 플래그 성립 불가. 철저히 이해관계에 얽힌 비즈니스 파트너나 선을 긋는 동료로만 대할 가.");
 
         if(ruleLines.length > 0) p += `\n\n[적용된 시스템 통제 규칙]\n- ` + ruleLines.join(`\n- `);
         return p;
