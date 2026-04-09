@@ -24,20 +24,15 @@ window.UI = {
         this.activeModal = id; 
         document.getElementById(id).style.display = 'block'; 
         document.getElementById('overlay').classList.add('active'); 
-        App.safePushState({ modal: id }, ""); 
+        try { history.pushState({ modal: id }, ""); } catch(e){}
     },
     closeModal: function(id) { 
         this.activeModal = null; 
         document.getElementById(id).style.display = 'none'; 
         if(!App.isPanelOpen) { document.getElementById('overlay').classList.remove('active'); } 
     },
-    closeAllModals: function() { 
-        this.activeModal = null; 
-        document.querySelectorAll('.modal-base').forEach(m => m.style.display = 'none'); 
-        if(!App.isPanelOpen) { document.getElementById('overlay').classList.remove('active'); } 
-    },
     
-    // 🔥 Missing function restored: Explicitly close panels instead of relying on history.back()
+    // 🔥 X 버튼, 오버레이 터치 시 무조건 패널을 완벽하게 닫아주는 함수 (History 의존 탈피)
     closeAllPanels: function() {
         this.syncPanelsBeforeClose();
         App.isPanelOpen = false;
@@ -56,7 +51,7 @@ window.UI = {
     toggleActionPopover: function() {
         const pop = document.getElementById('dice-settings-popover');
         if(pop.classList.contains('open')) { this.internalClosePopover(); } 
-        else { App.safePushState({ popover: true }, ""); this.internalOpenPopover(); }
+        else { try { history.pushState({ popover: true }, ""); } catch(e){} this.internalOpenPopover(); }
     },
     internalOpenPopover: function() { const pop = document.getElementById('dice-settings-popover'); const btn = document.getElementById('btn-action-expand'); pop.classList.add('open'); btn.classList.add('open'); btn.innerText = '✕'; if(window.Dice) window.Dice.refreshDiceUI(); },
     internalClosePopover: function() { const pop = document.getElementById('dice-settings-popover'); const btn = document.getElementById('btn-action-expand'); pop.classList.remove('open'); btn.classList.remove('open'); btn.innerText = '+'; },
@@ -110,11 +105,10 @@ window.UI = {
                 this.renderNetworkArchive(); 
                 setTimeout(() => {this.autoResize(memInput); this.autoResize(statInput);}, 10); 
             } 
-            App.safePushState({ panel: true }, "");
+            try { history.pushState({ panel: true }, ""); } catch(e){}
         }
     },
 
-    // 🔥 Missing rendering functions successfully restored below
     renderSafetyUI: function() {
         const container = document.getElementById('safety-checks'); if(!container) return;
         const labels = { violence: "폭력 및 유혈", discrimination: "혐오 및 차별", sexual: "성적 표현", abuse: "학대 묘사", selfharm: "자해 및 자살", drugs: "음주 및 약물", marysue: "과잉 찬양", obsession: "소유욕 및 집착", gore: "공포 및 기괴함", romance: "로맨스 전개" };
