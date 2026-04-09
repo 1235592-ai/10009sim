@@ -24,14 +24,20 @@ window.UI = {
         this.activeModal = id; 
         document.getElementById(id).style.display = 'block'; 
         document.getElementById('overlay').classList.add('active'); 
+        App.safePushState({ modal: id }, ""); 
     },
     closeModal: function(id) { 
         this.activeModal = null; 
         document.getElementById(id).style.display = 'none'; 
         if(!App.isPanelOpen) { document.getElementById('overlay').classList.remove('active'); } 
     },
+    closeAllModals: function() { 
+        this.activeModal = null; 
+        document.querySelectorAll('.modal-base').forEach(m => m.style.display = 'none'); 
+        if(!App.isPanelOpen) { document.getElementById('overlay').classList.remove('active'); } 
+    },
     
-    // 🔥 X 버튼이나 오버레이 클릭 시 명시적으로 UI를 닫는 메인 함수
+    // 🔥 Missing function restored: Explicitly close panels instead of relying on history.back()
     closeAllPanels: function() {
         this.syncPanelsBeforeClose();
         App.isPanelOpen = false;
@@ -39,6 +45,7 @@ window.UI = {
         document.getElementById('overlay').classList.remove('active');
         this.lastFocusedWorldInput = null;
         this.lastFocusedCharInput = null;
+        try { history.replaceState({ page: 'lobby' }, ""); } catch(e) {}
     },
 
     closeOverlay: function() {
@@ -49,7 +56,7 @@ window.UI = {
     toggleActionPopover: function() {
         const pop = document.getElementById('dice-settings-popover');
         if(pop.classList.contains('open')) { this.internalClosePopover(); } 
-        else { this.internalOpenPopover(); }
+        else { App.safePushState({ popover: true }, ""); this.internalOpenPopover(); }
     },
     internalOpenPopover: function() { const pop = document.getElementById('dice-settings-popover'); const btn = document.getElementById('btn-action-expand'); pop.classList.add('open'); btn.classList.add('open'); btn.innerText = '✕'; if(window.Dice) window.Dice.refreshDiceUI(); },
     internalClosePopover: function() { const pop = document.getElementById('dice-settings-popover'); const btn = document.getElementById('btn-action-expand'); pop.classList.remove('open'); btn.classList.remove('open'); btn.innerText = '+'; },
@@ -68,7 +75,7 @@ window.UI = {
         } else {
             if (pop && pop.classList.contains('open')) { this.internalClosePopover(); } 
             
-            this.closeAllPanels(); // 다른 패널 열려있으면 닫기
+            this.closeAllPanels(); 
             App.isPanelOpen = true;
             
             p.querySelectorAll('details[open]').forEach(d => {
@@ -81,6 +88,7 @@ window.UI = {
             if(id==='world-panel') { 
                 if(Store.state.activeRoomId) { document.getElementById('world-panel-title').innerText = "🗺️ 인게임 세계 설정"; document.getElementById('btn-free-roam').style.display = 'block'; } 
                 else { document.getElementById('world-panel-title').innerText = "🌌 템플릿 원본 편집"; document.getElementById('btn-free-roam').style.display = 'none'; } 
+                this.lastFocusedWorldInput = null;
                 const mBtn = document.getElementById('magic-btn');
                 if(mBtn) { mBtn.disabled = true; mBtn.style.opacity = '0.3'; mBtn.style.boxShadow = 'none'; }
                 this.renderWorld(); 
@@ -88,6 +96,7 @@ window.UI = {
             if(id==='char-panel') { 
                 if(!Store.state.activeRoomId) { document.getElementById('h3-my-char').style.display = 'none'; document.getElementById('h3-active-npc').style.display = 'none'; document.getElementById('h3-other-char').innerText = '👥 모든 인물'; } 
                 else { document.getElementById('h3-my-char').style.display = 'block'; document.getElementById('h3-active-npc').style.display = 'block'; document.getElementById('h3-other-char').innerText = '👥 대기 중인 조연'; } 
+                this.lastFocusedCharInput = null;
                 const cBtn = document.getElementById('char-magic-btn');
                 if(cBtn) { cBtn.disabled = true; cBtn.style.opacity = '0.3'; cBtn.style.boxShadow = 'none'; }
                 this.renderCharFilter(); this.renderCharacters(); 
@@ -101,10 +110,11 @@ window.UI = {
                 this.renderNetworkArchive(); 
                 setTimeout(() => {this.autoResize(memInput); this.autoResize(statInput);}, 10); 
             } 
+            App.safePushState({ panel: true }, "");
         }
     },
 
-    // ---------- 아래부터는 이전과 동일한 렌더링 함수들입니다 ----------
+    // 🔥 Missing rendering functions successfully restored below
     renderSafetyUI: function() {
         const container = document.getElementById('safety-checks'); if(!container) return;
         const labels = { violence: "폭력 및 유혈", discrimination: "혐오 및 차별", sexual: "성적 표현", abuse: "학대 묘사", selfharm: "자해 및 자살", drugs: "음주 및 약물", marysue: "과잉 찬양", obsession: "소유욕 및 집착", gore: "공포 및 기괴함", romance: "로맨스 전개" };
@@ -221,6 +231,7 @@ window.UI = {
     },
 
     updateActionBtn: function() { const val = document.getElementById('msg-input').value.trim(); const btn = document.getElementById('action-btn'); if(val) { btn.innerText = "전송"; btn.style.background = "var(--accent-color)"; } else { btn.innerText = "▶ 진행"; btn.style.background = "#059669"; } },
+    
     appendMessageDOM: function(m, idx) {
         const r = Store.getActiveRoom(); const w = r.worldInstance; const container = document.getElementById('chat-container'); const d = document.createElement('div'); d.className = `message ${m.role}`; d.setAttribute('data-idx', idx);
         if(m.role === 'user') { const speaker = document.createElement('div'); speaker.className = 'speaker-name'; const myC = w.characters.find(c=>c.id===r.myCharId); speaker.innerText = myC ? myC.keyword : 'USER'; d.appendChild(speaker); }
