@@ -73,7 +73,6 @@ body {
     visibility: visible;
 }
 
-/* 🔥 터치 완전 차단 철벽 로더 */
 #global-ai-loader {
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
@@ -87,12 +86,12 @@ body {
     font-weight: bold;
     font-size: 1.1rem;
     opacity: 0;
-    pointer-events: none; /* 숨어있을 땐 터치 통과 */
+    pointer-events: none; 
     transition: opacity 0.2s ease-in-out;
 }
 #global-ai-loader.show {
     opacity: 1;
-    pointer-events: auto; /* 켜지면 모든 터치 흡수 및 차단 */
+    pointer-events: auto; 
 }
 .sparkle-icon {
     font-size: 3rem;
@@ -350,19 +349,20 @@ header {
 }
 .btn-expand.open { transform: rotate(90deg); background: var(--danger); }
 
+/* 🔥 변경됨: 이모지 원색 유지 및 위치 엇나감 해결 */
 .icon-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
-.icon-toggle .icon { font-size: 1.1rem; filter: grayscale(100%) opacity(0.4); transition: all 0.2s; }
-.icon-toggle.active .icon { filter: grayscale(0%) opacity(1); }
-.icon-toggle.active .icon.dice-icon { text-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
-.icon-toggle.active .icon.long-icon { text-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
+.icon-toggle .icon { font-size: 1.1rem; opacity: 0.4; transition: all 0.2s; filter: none !important; }
+.icon-toggle.active .icon { opacity: 1; text-shadow: 0 0 10px rgba(255,255,255,0.4); }
+.icon-toggle.active .icon.dice-icon { text-shadow: 0 0 10px rgba(251, 191, 36, 0.8); }
+.icon-toggle.active .icon.long-icon { text-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
 
-.switch { position: relative; display: inline-block; width: 32px; height: 18px; margin: 0; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .2s; border-radius: 18px; }
-.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: #888; transition: .2s; border-radius: 50%; }
+.switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; margin: 0; }
+.switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #3f3f46; transition: .3s; border-radius: 20px; }
+.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: #a1a1aa; transition: .3s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--accent-color); }
 #toggle-dice.active input:checked + .slider { background-color: var(--warning); }
-input:checked + .slider:before { transform: translateX(14px); background-color: #fff; }
+input:checked + .slider:before { transform: translateX(16px); background-color: #fff; }
 
 .bookmark-popover {
     position: absolute;
@@ -396,7 +396,7 @@ input:checked + .slider:before { transform: translateX(14px); background-color: 
 ========================================= */
 #input-area {
     padding: 10px 15px 15px 15px;
-    background: var(--bg-color);
+    background: transparent;
     display: flex;
     align-items: flex-end;
     gap: 10px;
@@ -447,7 +447,6 @@ input:checked + .slider:before { transform: translateX(14px); background-color: 
 }
 .panel.open { transform: translateX(0); }
 
-/* 🔥 완벽한 스티키 헤더 방어 코드 (음수 마진으로 패널 패딩 돌파) */
 .sticky-header {
     position: -webkit-sticky;
     position: sticky;
@@ -516,22 +515,27 @@ input:checked + .slider:before { transform: translateX(14px); background-color: 
 .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
 .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
+/* 🔥 변경됨: 모든 브라우저에서 확실하게 작동하는 max-width 자르기 방식의 점 애니메이션 */
+.anim-dots {
+    display: inline-block;
+}
 .anim-dots::after {
-    content: '';
-    animation: dotAnim 1.5s steps(4, end) infinite;
+    content: '...';
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    animation: dotsWidth 1.5s steps(4, end) infinite;
 }
-@keyframes dotAnim {
-    0%, 20% { content: ''; }
-    40% { content: '.'; }
-    60% { content: '..'; }
-    80%, 100% { content: '...'; }
+@keyframes dotsWidth {
+    0% { max-width: 0; }
+    100% { max-width: 1.2em; }
 }
 
-.net-entry { background: #111; border-left: 3px solid var(--accent-color); padding: 12px; margin-bottom: 10px; border-radius: 0 6px 6px 0; font-size: 0.9rem; line-height: 1.5; }
-.net-tag { font-size: 0.75rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; background: #333; margin-bottom: 6px; display: inline-block; }
-.net-comment { font-size: 0.85rem; color: #aaa; margin-top: 6px; padding-left: 10px; border-left: 2px solid #444; }
+/* 🔥 변경됨: 네트워크 로그 창 UI 입체감 및 색상 수정 */
+.net-entry { background: #18181b; border-left: 4px solid var(--accent-color); padding: 16px; margin-bottom: 12px; border-radius: 0 8px 8px 0; font-size: 0.95rem; line-height: 1.6; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+.net-tag { font-size: 0.85rem; font-weight: bold; padding: 4px 10px; border-radius: 6px; background: #27272a; margin-bottom: 10px; display: inline-block; color: var(--accent-color); }
+.net-comment { font-size: 0.9rem; color: #a1a1aa; margin-top: 8px; padding-left: 12px; border-left: 2px solid #3f3f46; }
 
-/* 🔥 캐릭터 카드 전용 여백 및 입체감 강화 */
 .card-char { 
     margin-bottom: 16px !important; 
     background: #18181b !important; 
