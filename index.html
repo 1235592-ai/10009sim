@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>10009 시뮬레이터</title>
     <meta name="theme-color" content="#0a0a0a">
-    <link rel="stylesheet" href="css/style.css?v=2.1">
+    <link rel="stylesheet" href="css/style.css?v=3.1">
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -45,7 +45,7 @@
             <h3>🔑 API 설정</h3>
             <input type="password" id="set-api-key" class="input-std" placeholder="Gemini API Key" onchange="Store.saveSettings()">
             
-            <select id="model-preset-sel" class="select-std" style="margin-bottom: 5px;" onchange="if(this.value) document.getElementById('set-model-name').value = this.value; Store.saveSettings();">
+            <select id="model-preset-sel" class="select-std" style="margin-bottom: 12px;" onchange="if(this.value) document.getElementById('set-model-name').value = this.value; Store.saveSettings();">
                 <option value="">▼ 추천 모델 선택 (터치)</option>
                 <option value="gemini-3.1-flash-lite-preview">gemini-3.1-flash-lite-preview (가볍고 빠름)</option>
                 <option value="gemini-3.1-flash">gemini-3.1-flash (표준)</option>
@@ -62,8 +62,8 @@
             
             <details class="acc-sec">
                 <summary style="color:#ef4444;">🛡️ 안전 설정 (검열)</summary>
-                <div style="margin-top:10px;">
-                    <p style="font-size:0.75rem; color:#aaa; margin-bottom:10px; line-height:1.4;">
+                <div style="margin-top:10px; padding: 0 15px 15px 15px;">
+                    <p style="font-size:0.8rem; color:#aaa; margin-bottom:15px; line-height:1.5;">
                         * 체크 시 해당 항목의 묘사를 <b>검열(금지)</b>합니다.<br>
                         * 제한 없는 자유로운 출력을 원하시면 <b>모두 체크 해제</b>하세요.
                     </p>
@@ -79,7 +79,7 @@
             <hr style="border-color:#333; margin:20px 0;">
             <h3 style="color:#f59e0b;">🔄 시스템 관리</h3>
             <button class="btn-ghost" style="border-color:#f59e0b; color:#f59e0b; margin-bottom:0;" onclick="App.hardResetApp()">🚀 최신 버전으로 강제 업데이트 (캐시 삭제)</button>
-            <p style="font-size:0.75rem; color:#888; margin-top:8px;">* 화면이 이상하거나 업데이트가 반영되지 않을 때 누르세요. (데이터는 안전합니다!)</p>
+            <p style="font-size:0.75rem; color:#888; margin-top:10px;">* 화면이 이상하거나 업데이트가 반영되지 않을 때 누르세요.</p>
         </div>
     </div>
 
@@ -88,7 +88,7 @@
             <button class="btn-to-lobby" onclick="App.exitToLobby()">🏠 로비</button>
             <div class="header-names">
                 <span id="header-npc-names" onclick="UI.togglePanel('char-panel')">NPC들</span>
-                <span style="font-size:0.7rem; color:#666;">vs</span>
+                <span style="font-size:0.75rem; color:#666; margin: 0 5px;">vs</span>
                 <span id="header-user-name" onclick="UI.togglePanel('char-panel')">USER</span>
             </div>
             <div class="header-btns">
@@ -107,30 +107,30 @@
         <div>
             <div class="action-bar-wrapper">
                 <div id="dice-settings-popover" class="bookmark-popover">
-                    <div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #333;">
-                        <div style="font-size:0.75rem; color:#38bdf8; font-weight:bold; margin-bottom:4px;">📝 긴 대화 설정</div>
-                        <div style="font-size:0.75rem; color:#aaa;">아래 아이콘(스위치)을 켜면 AI가 평소보다 상세하고 긴 묘사를 출력합니다.</div>
+                    <div style="margin-bottom:15px; padding-bottom:15px; border-bottom:1px dashed #333;">
+                        <div style="font-size:0.85rem; color:#38bdf8; font-weight:bold; margin-bottom:6px;">📝 긴 대화 설정</div>
+                        <div style="font-size:0.8rem; color:#aaa; line-height: 1.4;">아래 아이콘(스위치)을 켜면 AI가 평소보다 상세하고 긴 묘사를 출력합니다.</div>
                     </div>
 
-                    <div style="font-size:0.75rem; color:#fbbf24; font-weight:bold; margin-bottom:6px;">🎲 주사위 굴림 설정</div>
-                    <div style="display:flex; flex-direction:column; gap:8px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <select id="dice-type" class="select-std" style="margin:0; padding:6px; width:auto;" onchange="Dice.onChangeType()">
+                    <div style="font-size:0.85rem; color:#fbbf24; font-weight:bold; margin-bottom:8px;">🎲 주사위 굴림 설정</div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <select id="dice-type" class="select-std" style="margin:0; padding:8px; width:auto;" onchange="Dice.onChangeType()">
                                 <option value="single">단일 (내 스탯)</option>
                                 <option value="opposed">대항 (vs NPC)</option>
                                 <option value="custom">커스텀 (자유 굴림)</option>
                             </select>
-                            <select id="dice-my-stat" class="select-std" style="margin:0; padding:6px; width:auto;"></select>
+                            <select id="dice-my-stat" class="select-std" style="margin:0; padding:8px; width:auto;"></select>
                             <span id="dice-vs-txt" style="color:#666; display:none; margin:0;">vs</span>
-                            <select id="dice-npc-stat" class="select-std" style="margin:0; padding:6px; width:auto; display:none;"></select>
+                            <select id="dice-npc-stat" class="select-std" style="margin:0; padding:8px; width:auto; display:none;"></select>
                         </div>
                         
-                        <div id="dice-custom-container" style="display:none; flex-direction:column; gap:6px;">
-                            <input type="text" id="dice-custom-obj" class="input-std" placeholder="목적 (예: 문 따기)" style="margin:0; padding:6px; width:100%;">
+                        <div id="dice-custom-container" style="display:none; flex-direction:column; gap:8px;">
+                            <input type="text" id="dice-custom-obj" class="input-std" placeholder="목적 (예: 문 따기)" style="margin:0; padding:8px; width:100%;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <input type="number" id="dice-custom-n" class="input-std" value="1" min="1" max="20" style="margin:0; padding:6px; width:60px; text-align:center;">
-                                <span style="color:#aaa; font-weight:bold; font-size:1.1rem;">d</span>
-                                <input type="number" id="dice-custom-sides" class="input-std" value="20" min="2" max="1000" style="margin:0; padding:6px; width:70px; text-align:center;">
+                                <input type="number" id="dice-custom-n" class="input-std" value="1" min="1" max="20" style="margin:0; padding:8px; width:70px; text-align:center;">
+                                <span style="color:#aaa; font-weight:bold; font-size:1.2rem;">d</span>
+                                <input type="number" id="dice-custom-sides" class="input-std" value="20" min="2" max="1000" style="margin:0; padding:8px; width:80px; text-align:center;">
                             </div>
                         </div>
                     </div>
@@ -168,21 +168,21 @@
                 <h2 id="world-panel-title">🗺️ 세계관 설정</h2>
                 <button class="close-btn-new" onclick="history.back()">✕</button>
             </div>
-            <div style="display:flex; gap:10px; margin-top:15px;">
-                <button class="btn-main" style="background:#16a34a; margin-bottom:0; flex:1;" onclick="Store.saveWorld()">💾 변경사항 저장</button>
-                <button id="magic-btn" class="btn-main" style="background:#6366f1; margin-bottom:0; width:50px; opacity:0.3; transition:all 0.3s ease;" onclick="App.runMagicGenerator()" disabled title="자동 연성">🪄</button>
+            <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
+                <button class="btn-main" style="background:#16a34a; margin-bottom:0; flex:1; min-width:120px;" onclick="Store.saveWorld()">💾 변경사항 저장</button>
+                <button id="magic-btn" class="btn-main" style="background:#6366f1; margin-bottom:0; flex:0 0 50px; opacity:0.3; transition:all 0.3s ease;" onclick="App.runMagicGenerator()" disabled title="자동 연성">🪄</button>
             </div>
         </div>
         
-        <button id="btn-free-roam" class="btn-ghost" style="margin-bottom:15px;" onclick="Store.setLoc(-1)">📍 문맥에 맡기기 (현재 미분류)</button>
+        <button id="btn-free-roam" class="btn-ghost" style="margin-bottom:20px;" onclick="Store.setLoc(-1)">📍 문맥에 맡기기 (현재 미분류)</button>
         
         <details class="acc-sec" open id="det-basic-settings">
             <summary style="color:#38bdf8;">🌌 기본 설정</summary>
-            <div style="margin-top:10px;">
+            <div style="margin-top:10px; padding: 0 15px 15px 15px;">
                 <div id="w-keyword-list" class="keyword-area"></div>
                 <input type="text" id="w-k-input" class="input-std" placeholder="단어 입력 후 띄어쓰기(스페이스) (최대 10개)" oninput="App.handleKeywordInput(event)">
                 
-                <hr style="border-color:#333; margin:15px 0;">
+                <hr style="border-color:#333; margin:20px 0;">
                 <input type="text" class="input-std" id="w-n" placeholder="세계관 이름">
                 <textarea class="area-std auto-resize" id="w-d" placeholder="프롬프트/배경" oninput="UI.autoResize(this);"></textarea>
                 <input type="text" class="input-std" id="w-url" placeholder="배경 이미지 URL">
@@ -191,23 +191,23 @@
         
         <details class="acc-sec">
             <summary style="color:#60a5fa;">🚩 세력 (집단)</summary>
-            <div id="world-factions-list" style="margin-top:10px;"></div>
-            <button class="btn-ghost" onclick="Store.addFaction()">+ 세력 추가</button>
+            <div id="world-factions-list" style="margin-top:10px; padding: 0 15px 15px 15px;"></div>
+            <div style="padding: 0 15px 15px 15px;"><button class="btn-ghost" style="margin:0;" onclick="Store.addFaction()">+ 세력 추가</button></div>
         </details>
         <details class="acc-sec">
             <summary style="color:#a3e635;">📚 지식 및 설정 (분류)</summary>
-            <div id="world-lore-folders-list" style="margin-top:10px;"></div>
-            <button class="btn-ghost" onclick="Store.addLoreFolder()">+ 📁 새 분류(폴더) 추가</button>
+            <div id="world-lore-folders-list" style="margin-top:10px; padding: 0 15px 15px 15px;"></div>
+            <div style="padding: 0 15px 15px 15px;"><button class="btn-ghost" style="margin:0;" onclick="Store.addLoreFolder()">+ 📁 새 분류(폴더) 추가</button></div>
         </details>
         <details class="acc-sec">
             <summary style="color:#10b981;">🗺️ 지역 및 상세 장소</summary>
-            <div id="world-regions-list" style="margin-top:10px;"></div>
-            <button class="btn-ghost" onclick="Store.addRegion()">+ 🏔️ 새 지역(대분류) 추가</button>
+            <div id="world-regions-list" style="margin-top:10px; padding: 0 15px 15px 15px;"></div>
+            <div style="padding: 0 15px 15px 15px;"><button class="btn-ghost" style="margin:0;" onclick="Store.addRegion()">+ 🏔️ 새 지역(대분류) 추가</button></div>
         </details>
 
-        <div style="margin-top:20px; border-top:1px dashed #333; padding-top:20px;">
+        <div style="margin-top:25px; border-top:1px dashed #333; padding-top:25px;">
             <button id="btn-world-sketch" class="btn-play" style="background:#8b5cf6; color:#fff;" onclick="App.runWorldSketch()">✨ 세계관 초안 스케치</button>
-            <p style="font-size:0.75rem; color:#888; text-align:center; line-height:1.4;">* 등록된 키워드를 바탕으로 세계관의 뼈대를 일괄 생성합니다.<br>* 빈 칸에 커서를 두고 🪄 버튼을 누르면 AI가 세부 내용을 채워줍니다.</p>
+            <p style="font-size:0.8rem; color:#888; text-align:center; line-height:1.5;">* 등록된 키워드를 바탕으로 뼈대를 일괄 생성합니다.<br>* 빈 칸에 커서를 두고 🪄 버튼을 누르면 연성됩니다.</p>
         </div>
     </div>
 
@@ -217,16 +217,26 @@
                 <h2>👤 인물 관리</h2>
                 <button class="close-btn-new" onclick="history.back()">✕</button>
             </div>
-            <button class="btn-main" style="background:#16a34a; margin-top:15px; margin-bottom:0;" onclick="Store.saveCharacters()">💾 인물 일괄 저장</button>
+            <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
+                <button class="btn-main" style="background:#16a34a; margin-bottom:0; flex:1; min-width:120px;" onclick="Store.saveCharacters()">💾 인물 일괄 저장</button>
+                <button id="char-magic-btn" class="btn-main" style="background:#6366f1; margin-bottom:0; flex:0 0 50px; opacity:0.3; transition:all 0.3s ease;" onclick="App.runCharMagic()" disabled title="인물 항목 연성">🪄</button>
+            </div>
         </div>
-        <div style="display:flex; gap:10px; margin-bottom:15px;">
-            <button class="btn-ghost" style="flex:1;" onclick="Store.addCharacter()">+ 새 인물</button>
-            <button class="btn-ghost" style="flex:1; border-color:#38bdf8; color:#38bdf8;" onclick="UI.openImportModal()">📥 불러오기</button>
+
+        <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+            <button class="btn-ghost" style="flex:1; min-width:120px; margin-bottom:0;" onclick="Store.addCharacter()">+ 빈 인물 추가</button>
+            <button class="btn-ghost" style="flex:1; min-width:120px; border-color:#38bdf8; color:#38bdf8; margin-bottom:0;" onclick="UI.openImportModal()">📥 불러오기</button>
         </div>
-        <select id="char-filter-sel" class="select-std" style="background:#111;" onchange="Store.syncCharDOM(); UI.renderCharacters()"></select>
-        <h3 id="h3-my-char" style="color:#0ea5e9; border-bottom:1px solid #333; padding-bottom:5px;">🙋‍♂️ 내 캐릭터</h3><div id="char-my-area"></div>
-        <h3 id="h3-active-npc" style="color:#10b981; border-bottom:1px solid #333; padding-bottom:5px;">🗣️ 참여 중인 주연</h3><div id="char-active-area"></div>
-        <h3 id="h3-other-char" style="color:#888; border-bottom:1px solid #333; padding-bottom:5px;">👥 대기 중인 조연</h3><div id="char-other-area"></div>
+        <select id="char-filter-sel" class="select-std" style="background:#111; margin-bottom:20px;" onchange="Store.syncCharDOM(); UI.renderCharacters()"></select>
+        
+        <h3 id="h3-my-char" style="color:#0ea5e9; border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:15px;">🙋‍♂️ 내 캐릭터</h3><div id="char-my-area"></div>
+        <h3 id="h3-active-npc" style="color:#10b981; border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:15px;">🗣️ 참여 중인 주연</h3><div id="char-active-area"></div>
+        <h3 id="h3-other-char" style="color:#888; border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:15px;">👥 대기 중인 조연</h3><div id="char-other-area"></div>
+
+        <div style="margin-top:25px; border-top:1px dashed #333; padding-top:25px;">
+            <button class="btn-play" style="background:#0ea5e9; color:#fff;" onclick="App.runNewCharGen()">✨ 세계관 맞춤 인물 연성</button>
+            <p style="font-size:0.8rem; color:#888; text-align:center; line-height:1.5;">* 세계관 정보를 바탕으로 새로운 조연을 창조합니다.<br>* 입력칸에 커서를 두고 🪄 버튼을 누르면 덧붙여집니다.</p>
+        </div>
     </div>
 
     <div id="sys-panel" class="panel">
@@ -240,14 +250,14 @@
         <h3 style="color:#ef4444; margin-top:10px;">⚠️ 현재 세계 상태</h3>
         <textarea id="global-status-input" class="area-std auto-resize" placeholder="서사의 절대 규칙이나 현재 디버프 상태 등을 적어두세요." oninput="UI.autoResize(this); Store.updateRoomState('globalStatus', this.value);"></textarea>
         
-        <h3 style="color:#a78bfa; margin-top:20px;">📝 상황 요약</h3>
+        <h3 style="color:#a78bfa; margin-top:25px;">📝 상황 요약</h3>
         <textarea id="room-memory-input" class="area-std auto-resize" style="min-height:150px;" oninput="UI.autoResize(this); Store.updateRoomState('memory', this.value);"></textarea>
-        <button class="btn-main" style="margin-top:8px;" onclick="Store.saveRoomMemory()">기억 수동 저장</button>
+        <button class="btn-main" style="margin-top:10px;" onclick="Store.saveRoomMemory()">기억 수동 저장</button>
         
-        <hr style="border-color:#333; margin:25px 0;">
+        <hr style="border-color:#333; margin:30px 0;">
         
         <h3 style="color:#dc2626;">📡 정보망 프리셋</h3>
-        <select id="network-preset-sel" class="select-std" onchange="UI.toggleCustomNet(this.value)">
+        <select id="network-preset-sel" class="select-std" style="margin-top:10px;" onchange="UI.toggleCustomNet(this.value)">
             <option value="modern">🌐 현대 / 현대 판타지</option>
             <option value="medieval">👑 중세 / 로맨스 판타지</option>
             <option value="apocalypse">📻 아포칼립스 / 생존</option>
@@ -256,30 +266,31 @@
             <option value="custom">⚙️ 자유 지정 (직접 입력)</option>
         </select>
 
-        <div id="custom-net-input" style="display:none; margin-top:10px; padding:10px; background:#1a1a1a; border-radius:8px;">
-            <input type="text" id="custom-net-name" class="input-std" style="margin-bottom:8px;" placeholder="세계관/장르명 (예: 사이버펑크)">
-            <input type="text" id="custom-net-tags" class="input-std" placeholder="태그 4개 (예: [공지],[현장],[수다],[기밀])">
-            <div style="font-size:0.8rem; color:#888; margin-top:5px;">* 쉼표(,)로 구분하여 반드시 4개의 태그를 입력하세요.</div>
+        <div id="custom-net-input" style="display:none; margin-top:15px; padding:15px; background:#1a1a1a; border-radius:10px;">
+            <input type="text" id="custom-net-name" class="input-std" style="margin-bottom:10px;" placeholder="세계관/장르명 (예: 사이버펑크)">
+            <input type="text" id="custom-net-tags" class="input-std" style="margin-bottom:5px;" placeholder="태그 4개 (예: [공지],[현장],[수다],[기밀])">
+            <div style="font-size:0.8rem; color:#888;">* 쉼표(,)로 구분하여 반드시 4개의 태그를 입력하세요.</div>
         </div>
 
-        <div style="display:flex; gap:10px; margin-top:15px; margin-bottom:10px;">
-            <button class="btn-main" style="background:#dc2626; flex:2;" onclick="API.generateNetwork()">🔄 세계 반응 스캔</button>
-            <button class="btn-ghost" style="flex:1;" onclick="UI.editNetwork()">✏️ 수정</button>
+        <div style="display:flex; gap:10px; margin-top:20px; margin-bottom:15px; flex-wrap:wrap;">
+            <button class="btn-main" style="background:#dc2626; flex:2; min-width:150px; margin-bottom:0;" onclick="API.generateNetwork()">🔄 세계 반응 스캔</button>
+            <button class="btn-ghost" style="flex:1; min-width:80px; margin-bottom:0;" onclick="UI.editNetwork()">✏️ 수정</button>
         </div>
         <div id="network-content"></div>
         <textarea id="network-edit-area" class="area-std auto-resize" style="display:none; min-height:200px;" oninput="UI.autoResize(this); Store.updateRoomState('networkArchive', this.value);"></textarea>
-        <button id="network-save-btn" class="btn-main" style="display:none;" onclick="Store.saveNetwork()">저장</button>
+        <button id="network-save-btn" class="btn-main" style="display:none; margin-top:10px;" onclick="Store.saveNetwork()">저장</button>
     </div>
 
     <div id="new-room-modal" class="modal-base"><div class="modal-header"><h3>🎭 새 시나리오</h3><button class="close-btn-new" onclick="UI.closeModal('new-room-modal')">✕</button></div><select id="new-room-world-sel" class="select-std"></select><input type="text" id="new-room-name" class="input-std" placeholder="제목"><button class="btn-play" onclick="App.createNewRoom()">생성</button></div>
-    <div id="edit-room-modal" class="modal-base"><div class="modal-header"><h3>✏️ 수정</h3><button class="close-btn-new" onclick="UI.closeModal('edit-room-modal')">✕</button></div><input type="hidden" id="edit-room-id"><input type="text" id="edit-room-name" class="input-std"><button class="btn-main" style="margin-top:10px;" onclick="App.saveRoomInfo()">저장</button></div>
-    <div id="import-modal" class="modal-base"><div class="modal-header"><h3>📥 인물 불러오기</h3><button class="close-btn-new" onclick="UI.closeModal('import-modal')">✕</button></div><select id="import-world-sel" class="select-std" onchange="UI.renderImportChars()"></select><div id="import-char-list" style="margin-top:10px; max-height:200px; overflow-y:auto;"></div></div>
-    <div id="tag-manage-modal" class="modal-base"><div class="modal-header"><h3>🏷️ 태그 관리</h3><button class="close-btn-new" onclick="UI.closeModal('tag-manage-modal')">✕</button></div><div id="tag-manage-list" style="max-height:250px; overflow-y:auto; margin-bottom:10px;"></div></div>
+    <div id="edit-room-modal" class="modal-base"><div class="modal-header"><h3>✏️ 수정</h3><button class="close-btn-new" onclick="UI.closeModal('edit-room-modal')">✕</button></div><input type="hidden" id="edit-room-id"><input type="text" id="edit-room-name" class="input-std"><button class="btn-main" style="margin-top:15px;" onclick="App.saveRoomInfo()">저장</button></div>
+    <div id="import-modal" class="modal-base"><div class="modal-header"><h3>📥 인물 불러오기</h3><button class="close-btn-new" onclick="UI.closeModal('import-modal')">✕</button></div><select id="import-world-sel" class="select-std" onchange="UI.renderImportChars()"></select><div id="import-char-list" style="margin-top:15px; max-height:200px; overflow-y:auto;"></div></div>
+    <div id="tag-manage-modal" class="modal-base"><div class="modal-header"><h3>🏷️ 태그 관리</h3><button class="close-btn-new" onclick="UI.closeModal('tag-manage-modal')">✕</button></div><div id="tag-manage-list" style="max-height:250px; overflow-y:auto; margin-bottom:15px;"></div></div>
 
     <script src="js/store.js"></script>
     <script src="js/api.js"></script>
     <script src="js/dice.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/ui_render.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
