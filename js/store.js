@@ -74,10 +74,7 @@ window.Store = {
         this.forceSave(); 
         if(!this.state.activeRoomId) { document.body.style.backgroundImage = this.state.lobbyBgUrl ? `url('${this.state.lobbyBgUrl}')` : 'none'; }
         const modSel = document.getElementById('model-preset-sel');
-        if(modSel) {
-            const opts = Array.from(modSel.options).map(o => o.value);
-            modSel.value = opts.includes(this.state.modelName) ? this.state.modelName : '';
-        }
+        if(modSel) { const opts = Array.from(modSel.options).map(o => o.value); modSel.value = opts.includes(this.state.modelName) ? this.state.modelName : ''; }
         UI.showToast("설정이 저장되었습니다."); 
     },
     
@@ -122,10 +119,7 @@ window.Store = {
         if(type==='lf') { w.loreFolders = w.loreFolders.filter(x=>x.id!==id); w.lores.forEach(l=>{ if(l.folderId===id) l.folderId=''; }); }
         if(type==='l') w.lores = w.lores.filter(x=>x.id!==id);
         if(type==='reg') { w.regions = w.regions.filter(x=>x.id!==id); w.locations.forEach(loc=>{ if(loc.regionId===id) loc.regionId=''; }); }
-        if(type==='loc') {
-            const idx = w.locations.findIndex(x=>x.id===id);
-            if(idx !== -1) { w.locations.splice(idx, 1); if(this.state.activeRoomId) { const r = this.getActiveRoom(); if(r.currentLocIdx === idx) r.currentLocIdx = -1; else if(r.currentLocIdx > idx) r.currentLocIdx--; } }
-        }
+        if(type==='loc') { const idx = w.locations.findIndex(x=>x.id===id); if(idx !== -1) { w.locations.splice(idx, 1); if(this.state.activeRoomId) { const r = this.getActiveRoom(); if(r.currentLocIdx === idx) r.currentLocIdx = -1; else if(r.currentLocIdx > idx) r.currentLocIdx--; } } }
         this.forceSave(); UI.renderWorld();
     },
 
@@ -163,8 +157,8 @@ window.Store = {
     },
     exportChatToTxt: function() { 
         if(!confirm("현재 시나리오의 대화 로그를 텍스트 파일(TXT)로 다운로드하시겠습니까?")) return;
-        const r = this.getActiveRoom(); if(!r) return; const w = r.worldInstance; let txt = `${r.name} - 로그\\n\\n`; 
-        r.history.forEach(m => { const speaker = m.role === 'user' ? (w.characters.find(c=>c.id===r.myCharId)?.keyword || 'USER') : (m.charIds || ['sys']).map(id => w.characters.find(c=>c.id===id)?.keyword).filter(x=>x).join(', ') || '시뮬레이터'; txt += `[${speaker}]\\n${m.variants[m.currentVariant]}\\n\\n`; }); 
+        const r = this.getActiveRoom(); if(!r) return; const w = r.worldInstance; let txt = `${r.name} - 로그\n\n`; 
+        r.history.forEach(m => { const speaker = m.role === 'user' ? (w.characters.find(c=>c.id===r.myCharId)?.keyword || 'USER') : (m.charIds || ['sys']).map(id => w.characters.find(c=>c.id===id)?.keyword).filter(x=>x).join(', ') || '시뮬레이터'; txt += `[${speaker}]\n${m.variants[m.currentVariant]}\n\n`; }); 
         const a = document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'})); a.download=`${r.name}.txt`; a.click(); 
     },
     importData: function(e) { 
