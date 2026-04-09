@@ -10,48 +10,23 @@ window.Store = {
 
     openDB: function() {
         return new Promise((resolve, reject) => {
-            try {
-                const req = indexedDB.open('10009SIM_DB', 1);
-                req.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if(!db.objectStoreNames.contains('master')) db.createObjectStore('master', {keyPath: 'id'});
-                    if(!db.objectStoreNames.contains('worlds')) db.createObjectStore('worlds', {keyPath: 'id'});
-                    if(!db.objectStoreNames.contains('rooms')) db.createObjectStore('rooms', {keyPath: 'id'});
-                };
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => resolve(null); // 🔥 에러나도 null로 반환하여 스크립트 진행
-            } catch(e) { resolve(null); }
+            const req = indexedDB.open('10009SIM_DB', 1);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if(!db.objectStoreNames.contains('master')) db.createObjectStore('master', {keyPath: 'id'});
+                if(!db.objectStoreNames.contains('worlds')) db.createObjectStore('worlds', {keyPath: 'id'});
+                if(!db.objectStoreNames.contains('rooms')) db.createObjectStore('rooms', {keyPath: 'id'});
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
         });
     },
-    
-    // 🔥 db가 null일 때 앱이 터지지 않도록 완벽 방어
-    dbGet: function(storeName, id) { 
-        return new Promise(resolve => { 
-            if(!this.db) return resolve(null);
-            try { const req = this.db.transaction(storeName, 'readonly').objectStore(storeName).get(id); req.onsuccess = () => resolve(req.result); req.onerror = () => resolve(null); } catch(e){ resolve(null); }
-        }); 
-    },
-    dbGetAll: function(storeName) { 
-        return new Promise(resolve => { 
-            if(!this.db) return resolve([]);
-            try { const req = this.db.transaction(storeName, 'readonly').objectStore(storeName).getAll(); req.onsuccess = () => resolve(req.result); req.onerror = () => resolve([]); } catch(e){ resolve([]); }
-        }); 
-    },
-    dbPut: function(storeName, item) { 
-        return new Promise(resolve => { 
-            if(!this.db) return resolve();
-            try { const req = this.db.transaction(storeName, 'readwrite').objectStore(storeName).put(item); req.onsuccess = () => resolve(); req.onerror = () => resolve(); } catch(e){ resolve(); }
-        }); 
-    },
-    dbDelete: function(storeName, id) { 
-        return new Promise(resolve => { 
-            if(!this.db) return resolve();
-            try { const req = this.db.transaction(storeName, 'readwrite').objectStore(storeName).delete(id); req.onsuccess = () => resolve(); req.onerror = () => resolve(); } catch(e){ resolve(); }
-        }); 
-    },
+    dbGet: function(storeName, id) { return new Promise(resolve => { const req = this.db.transaction(storeName, 'readonly').objectStore(storeName).get(id); req.onsuccess = () => resolve(req.result); req.onerror = () => resolve(null); }); },
+    dbGetAll: function(storeName) { return new Promise(resolve => { const req = this.db.transaction(storeName, 'readonly').objectStore(storeName).getAll(); req.onsuccess = () => resolve(req.result); req.onerror = () => resolve([]); }); },
+    dbDelete: function(storeName, id) { return new Promise(resolve => { const req = this.db.transaction(storeName, 'readwrite').objectStore(storeName).delete(id); req.onsuccess = () => resolve(); req.onerror = () => resolve(); }); },
 
     init: async function() {
-        this.db = await this.openDB();
+        try { this.db = await this.openDB(); } catch(e) { console.warn("DB init failed", e); alert("저장소 초기화 실패. 브라우저 설정(시크릿 모드 등)을 확인하세요."); return; }
         
         const master = await this.dbGet('master', 'main');
         if (master) {
@@ -81,6 +56,7 @@ window.Store = {
                 const tx = this.db.transaction(['master', 'worlds', 'rooms'], 'readwrite');
                 tx.objectStore('master').put(master);
                 this.state.worlds.forEach(w => tx.objectStore('worlds').put(w));
+                
                 if (this.state.activeRoomId) {
                     const r = this.getActiveRoom();
                     if(r) tx.objectStore('rooms').put(r);
@@ -88,7 +64,7 @@ window.Store = {
                     this.state.rooms.forEach(r => tx.objectStore('rooms').put(r));
                 }
             } catch(e) { console.error("DB Save Error", e); }
-        }, 300);
+        }, 500); // 디바운스 시간 약간 늘려 성능 최적화
     },
     
     saveSettings: function() { 
@@ -98,7 +74,10 @@ window.Store = {
         this.forceSave(); 
         if(!this.state.activeRoomId) { document.body.style.backgroundImage = this.state.lobbyBgUrl ? `url('${this.state.lobbyBgUrl}')` : 'none'; }
         const modSel = document.getElementById('model-preset-sel');
-        if(modSel) { const opts = Array.from(modSel.options).map(o => o.value); modSel.value = opts.includes(this.state.modelName) ? this.state.modelName : ''; }
+        if(modSel) {
+            const opts = Array.from(modSel.options).map(o => o.value);
+            modSel.value = opts.includes(this.state.modelName) ? this.state.modelName : '';
+        }
         UI.showToast("설정이 저장되었습니다."); 
     },
     
@@ -143,7 +122,10 @@ window.Store = {
         if(type==='lf') { w.loreFolders = w.loreFolders.filter(x=>x.id!==id); w.lores.forEach(l=>{ if(l.folderId===id) l.folderId=''; }); }
         if(type==='l') w.lores = w.lores.filter(x=>x.id!==id);
         if(type==='reg') { w.regions = w.regions.filter(x=>x.id!==id); w.locations.forEach(loc=>{ if(loc.regionId===id) loc.regionId=''; }); }
-        if(type==='loc') { const idx = w.locations.findIndex(x=>x.id===id); if(idx !== -1) { w.locations.splice(idx, 1); if(this.state.activeRoomId) { const r = this.getActiveRoom(); if(r.currentLocIdx === idx) r.currentLocIdx = -1; else if(r.currentLocIdx > idx) r.currentLocIdx--; } } }
+        if(type==='loc') {
+            const idx = w.locations.findIndex(x=>x.id===id);
+            if(idx !== -1) { w.locations.splice(idx, 1); if(this.state.activeRoomId) { const r = this.getActiveRoom(); if(r.currentLocIdx === idx) r.currentLocIdx = -1; else if(r.currentLocIdx > idx) r.currentLocIdx--; } }
+        }
         this.forceSave(); UI.renderWorld();
     },
 
@@ -181,8 +163,8 @@ window.Store = {
     },
     exportChatToTxt: function() { 
         if(!confirm("현재 시나리오의 대화 로그를 텍스트 파일(TXT)로 다운로드하시겠습니까?")) return;
-        const r = this.getActiveRoom(); if(!r) return; const w = r.worldInstance; let txt = `${r.name} - 로그\n\n`; 
-        r.history.forEach(m => { const speaker = m.role === 'user' ? (w.characters.find(c=>c.id===r.myCharId)?.keyword || 'USER') : (m.charIds || ['sys']).map(id => w.characters.find(c=>c.id===id)?.keyword).filter(x=>x).join(', ') || '시뮬레이터'; txt += `[${speaker}]\n${m.variants[m.currentVariant]}\n\n`; }); 
+        const r = this.getActiveRoom(); if(!r) return; const w = r.worldInstance; let txt = `${r.name} - 로그\\n\\n`; 
+        r.history.forEach(m => { const speaker = m.role === 'user' ? (w.characters.find(c=>c.id===r.myCharId)?.keyword || 'USER') : (m.charIds || ['sys']).map(id => w.characters.find(c=>c.id===id)?.keyword).filter(x=>x).join(', ') || '시뮬레이터'; txt += `[${speaker}]\\n${m.variants[m.currentVariant]}\\n\\n`; }); 
         const a = document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'})); a.download=`${r.name}.txt`; a.click(); 
     },
     importData: function(e) { 
