@@ -1,5 +1,4 @@
 window.API = {
-    // 🔥 Temperature 1.0 -> 0.85 하향: 창의성은 유지하되 문장의 붕괴와 AI 특유의 헛소리 방지
     streamGemini: async function(contents, sysText, onChunk) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${Store.state.modelName}:streamGenerateContent?key=${Store.state.apiKey}&alt=sse`;
         const body = { contents, safetySettings: [ { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" } ], generationConfig: { temperature: 0.85 } };
@@ -48,12 +47,7 @@ window.API = {
 
     getBatchEmbeddings: async function(texts) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key=${Store.state.apiKey}`;
-        const body = {
-            requests: texts.map(t => ({
-                model: "models/text-embedding-004",
-                content: { parts: [{ text: t }] }
-            }))
-        };
+        const body = { requests: texts.map(t => ({ model: "models/text-embedding-004", content: { parts: [{ text: t }] } })) };
         const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!res.ok) throw new Error("임베딩 API 호출 실패");
         const data = await res.json();
@@ -62,11 +56,7 @@ window.API = {
 
     cosineSimilarity: function(vecA, vecB) {
         let dotProduct = 0; let normA = 0; let normB = 0;
-        for (let i = 0; i < vecA.length; i++) {
-            dotProduct += vecA[i] * vecB[i];
-            normA += vecA[i] * vecA[i];
-            normB += vecB[i] * vecB[i];
-        }
+        for (let i = 0; i < vecA.length; i++) { dotProduct += vecA[i] * vecB[i]; normA += vecA[i] * vecA[i]; normB += vecB[i] * vecB[i]; }
         if (normA === 0 || normB === 0) return 0;
         return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
     },
@@ -103,7 +93,6 @@ window.API = {
                 }
                 if (maxSim < 0.85 && maxSim > 0.35) validCandidates.push({ word: candidates[i], sim: maxSim });
             }
-
             if (validCandidates.length < 3) return candidates.slice(0, 3).join(', ');
             validCandidates.sort((a, b) => Math.abs(a.sim - 0.55) - Math.abs(b.sim - 0.55));
             return validCandidates.slice(0, 3).map(c => c.word).join(', ');
@@ -128,7 +117,7 @@ window.API = {
     statToDesc: function(val) { if(val >= 90) return "초인"; if(val >= 80) return "전문가"; if(val >= 70) return "우수"; if(val >= 60) return "양호"; if(val >= 40) return "보통"; if(val >= 20) return "미숙"; return "최악"; },
     repToDesc: function(val, left, right) { if(val === 0) return "중립"; const side = val < 0 ? left : right; const absVal = Math.abs(val); if(absVal <= 2) return `${side} 약간`; if(absVal <= 4) return `${side} 강함`; return `${side} 극단적`; },
 
-    // 🔥 프롬프트 엔지니어링 초고도화 적용
+    // 🔥 완벽하게 재구성된 AI 프롬프트 빌더 (블록형 데이터 및 소속 세력 자동 추출)
     buildPrompt: function(r, scan) {
         const w = r.worldInstance; const loc = w.locations[r.currentLocIdx]; let reg = null; if(loc && loc.regionId) reg = w.regions.find(rg => rg.id === loc.regionId);
         const activeNpcs = r.activeCharIds.map(id => w.characters.find(c=>c.id===id)).filter(c=>c&&c.id!=='sys'); const myChar = w.characters.find(c=>c.id===r.myCharId) || {keyword:'플레이어', desc:''};
@@ -137,37 +126,82 @@ window.API = {
         const myReps = myChar.reputation && myChar.reputation.length ? myChar.reputation.map(rep => `${rep.leftName||'L'}↔${rep.rightName||'R'}(${this.repToDesc(rep.value, rep.leftName||'L', rep.rightName||'R')})`).join(', ') : ''; 
         let gStatus = r.globalStatus && r.globalStatus.trim() ? `\n[🚨 절대 서사 규칙]\n${r.globalStatus.trim()}\n` : '';
         
-        let myParts = []; if(myChar.desc?.trim()) myParts.push(myChar.desc.trim()); if(myStats) myParts.push(`스탯:${myStats}`); if(myReps) myParts.push(`성향:${myReps}`);
+        // 1. 내 캐릭터 데이터 구조화 (줄바꿈 포맷) 및 세력 수집
+        let myFNames = [];
+        let activeFactionIds = new Set(); // 현재 씬에 등장하는 모든 인물의 세력을 모아둘 바구니
         
-        // 1. 디테일한 페르소나와 OOC 금지 명시
-        let p = `당신은 해당 장르에 정통한 베테랑 작가이자 압도적인 몰입감을 선사하는 TRPG 마스터입니다. 섬세하고 감각적인 묘사, 입체적인 캐릭터, 클리셰를 비트는 전개로 장르적 쾌감을 극대화하십시오.\n[OOC(Out of Character) 절대 금지] 당신은 AI가 아니라 이 세계 그 자체입니다. "AI로서", "저는 ~할 수 없습니다", "이 시뮬레이션은" 같은 메타 발언 및 자기 언급을 절대 금지합니다.${gStatus}\n[세계관] ${w.prompt}\n[내 캐릭터] ${myChar.keyword}` + (myParts.length > 0 ? ': ' + myParts.join(' / ') : '') + '\n';
+        if (myChar.factionIds) {
+            myChar.factionIds.forEach(fid => {
+                activeFactionIds.add(fid);
+                const fac = w.factions.find(f=>f.id===fid);
+                if(fac && fac.name?.trim()) myFNames.push(fac.name.trim());
+            });
+        }
         
+        let myBlock = `[내 캐릭터: ${myChar.keyword}]`;
+        if(myFNames.length > 0) myBlock += `\n- 소속: ${myFNames.join(', ')}`;
+        if(myChar.desc?.trim()) myBlock += `\n- 설명: ${myChar.desc.trim()}`;
+        if(myChar.secret?.trim()) myBlock += `\n- 비밀: ${myChar.secret.trim()}`;
+        if(myStats) myBlock += `\n- 스탯: ${myStats}`;
+        if(myReps) myBlock += `\n- 성향: ${myReps}`;
+
+        let p = `당신은 해당 장르에 정통한 베테랑 작가이자 압도적인 몰입감을 선사하는 TRPG 마스터입니다. 섬세하고 감각적인 묘사, 입체적인 캐릭터, 클리셰를 비트는 전개로 장르적 쾌감을 극대화하십시오.\n[OOC(Out of Character) 절대 금지] 당신은 AI가 아니라 이 세계 그 자체입니다. "AI로서", "저는 ~할 수 없습니다", "이 시뮬레이션은" 같은 메타 발언 및 자기 언급을 절대 금지합니다.${gStatus}\n[세계관] ${w.prompt}\n\n${myBlock}\n`;
+        
+        // 2. 참여 NPC 데이터 구조화 (줄바꿈 포맷) 및 세력 수집
         if(activeNpcs.length > 0) { 
             const npcNames = activeNpcs.map(c => c.keyword).join(', '); 
-            const npcDesc = activeNpcs.map(c => { 
+            const npcBlocks = activeNpcs.map(c => { 
                 const sText = c.stats && c.stats.length ? c.stats.filter(s=>s.active!==false).map(s=>`${s.n}(${this.statToDesc(s.v)})`).join(', ') : ''; 
-                let fNames = []; let fSecs = [];
-                if (c.factionIds) c.factionIds.forEach(fid => { const fac = w.factions.find(f=>f.id===fid); if(fac) { if(fac.name?.trim()) fNames.push(fac.name.trim()); if(fac.secret?.trim()) fSecs.push(fac.secret.trim()); } });
-                let namePart = `- ${c.keyword}`; 
-                if(fNames.length > 0) namePart += `(소속:${fNames.join(', ')})`;
-                let detailParts = []; 
-                if(c.desc?.trim()) detailParts.push(c.desc.trim()); 
-                if(c.secret?.trim()) detailParts.push('개인비밀:' + c.secret.trim()); 
-                if(fSecs.length > 0) detailParts.push('세력비밀:' + fSecs.join(' / ')); 
-                if(sText) detailParts.push('스탯:' + sText);
-                return namePart + (detailParts.length > 0 ? ': ' + detailParts.join(' / ') : '');
-            }).join('\n'); 
-            p += `[참여 NPC] ${npcNames}\n${npcDesc}\n`; 
+                let fNames = [];
+                if (c.factionIds) {
+                    c.factionIds.forEach(fid => { 
+                        activeFactionIds.add(fid); // 이 NPC의 소속도 글로벌 세력 수집함에 추가!
+                        const fac = w.factions.find(f=>f.id===fid); 
+                        if(fac && fac.name?.trim()) fNames.push(fac.name.trim()); 
+                    });
+                }
+                
+                let block = `[NPC: ${c.keyword}]`;
+                if(fNames.length > 0) block += `\n- 소속: ${fNames.join(', ')}`;
+                if(c.desc?.trim()) block += `\n- 설명: ${c.desc.trim()}`;
+                if(c.secret?.trim()) block += `\n- 비밀: ${c.secret.trim()}`;
+                if(sText) block += `\n- 스탯: ${sText}`;
+                return block;
+            }).join('\n\n'); 
+            p += `\n[참여 NPC 목록: ${npcNames}]\n${npcBlocks}\n\n*위 NPC들이 주도적으로 반응하게 하세요.*\n`; 
+        }
+
+        // 3. 수집된 소속 세력의 상세 정보 글로벌 인젝션 (AI가 "아, 이 소속은 이런 비밀이 있구나"를 깨달음)
+        if(activeFactionIds.size > 0) {
+            let facBlocks = [];
+            activeFactionIds.forEach(fid => {
+                const fac = w.factions.find(f => f.id === fid);
+                if(fac) {
+                    let fb = `[세력: ${fac.name}]`;
+                    if(fac.desc?.trim()) fb += `\n- 설명: ${fac.desc.trim()}`;
+                    if(fac.secret?.trim()) fb += `\n- 비밀: ${fac.secret.trim()}`;
+                    facBlocks.push(fb);
+                }
+            });
+            if(facBlocks.length > 0) {
+                p += `\n[관련 소속 세력 정보]\n${facBlocks.join('\n\n')}\n`;
+            }
         }
         
         if(loc) p += `\n[장소: ${reg?reg.name+' - ':''}${loc.name}]${loc.desc?.trim() ? ' (특징: '+loc.desc.trim()+')' : ''}\n`;
         let mem = r.memory || ""; const memBlocks = mem.split('[자동 요약]'); let memToSend = memBlocks[0]; if (memBlocks.length > 1) { memToSend += '[자동 요약]' + memBlocks.slice(Math.max(1, memBlocks.length - 2)).join('[자동 요약]'); } if(memToSend.trim()) p += `[상황 기억]\n${memToSend.trim()}\n`;
-        const info = []; w.characters.forEach(c => { if(c.isHidden || c.id === r.myCharId || c.id === 'sys') return; if(c.triggerLocId && loc && c.triggerLocId !== loc.id) return; if(c.keyword && scan.includes(c.keyword) && !r.activeCharIds.includes(c.id)) info.push(`- ${c.keyword}: ${c.desc}`); }); w.factions.forEach(f => { if(f.name && scan.includes(f.name)) info.push(`- 세력 ${f.name}: ${f.desc}`); }); w.lores.forEach(l => { if(l.triggerLocId && loc && l.triggerLocId !== loc.id) return; if(l.keyword && scan.includes(l.keyword)) info.push(`- 지식 ${l.keyword}: ${l.desc}`); }); if(info.length) p += `\n[언급된 대기 요소]\n${info.join("\n")}\n`;
+        
+        // 대기 요소는 활성화된 세력(activeFactionIds)과 겹치지 않게 중복 방지 처리
+        const info = []; 
+        w.characters.forEach(c => { if(c.isHidden || c.id === r.myCharId || c.id === 'sys') return; if(c.triggerLocId && loc && c.triggerLocId !== loc.id) return; if(c.keyword && scan.includes(c.keyword) && !r.activeCharIds.includes(c.id)) info.push(`- ${c.keyword}: ${c.desc}`); }); 
+        w.factions.forEach(f => { if(f.name && scan.includes(f.name) && !activeFactionIds.has(f.id)) info.push(`- 세력 ${f.name}: ${f.desc}`); }); 
+        w.lores.forEach(l => { if(l.triggerLocId && loc && l.triggerLocId !== loc.id) return; if(l.keyword && scan.includes(l.keyword)) info.push(`- 지식 ${l.keyword}: ${l.desc}`); }); 
+        if(info.length) p += `\n[언급된 대기 요소]\n${info.join("\n")}\n`;
+        
         if(scan.includes('🎲') || scan.includes('⚔️')) p += `\n*주의: 주사위 판정 결과를 바탕으로 연출하세요.*\n`;
         
         const isLong = document.getElementById('long-response')?.checked;
         
-        // 🔥 세밀한 규칙 적용부 (능동성, 감각 디테일, 클리셰 금지 등)
         p += `\n\n[✍️ 마스터 서술 절대 규칙]\n`;
         p += `- ⚠️ [대리 묘사 절대 금지] 플레이어(${myChar.keyword})의 대사, 감정, 행동은 단 1%도 대리 묘사 불가. 오직 NPC와 세계의 반응만 서술할 것.\n`;
         p += `- [능동적 세계] NPC와 세계는 플레이어를 기다리지 않습니다. 먼저 행동하고, 의제를 던지고, 침묵하거나 속이며 능동적으로 상황을 주도하십시오.\n`;
