@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
     <title>10009 시뮬레이터</title>
     <meta name="theme-color" content="#0a0a0a">
     <link rel="stylesheet" href="css/style.css?v=2.4">
@@ -138,6 +138,11 @@
                 
                 <button id="btn-action-expand" class="btn-expand" onclick="UI.toggleActionPopover()">+</button>
                 
+                <div class="icon-toggle tone-control" id="toggle-tone" onclick="UI.cycleTone()" title="서술 톤 변경 (Light/Normal/Heavy)" style="cursor:pointer;">
+                    <span class="icon tone-icon">🎭</span>
+                    <span id="tone-label" style="font-size: 0.75rem; color: #a1a1aa; font-weight:bold;">Normal</span>
+                </div>
+
                 <label class="icon-toggle" id="toggle-long">
                     <span class="icon long-icon">📝</span>
                     <div class="switch">
@@ -252,7 +257,13 @@
         <h3 style="color:#a78bfa; margin-top:20px;">📝 상황 요약</h3>
         <textarea id="room-memory-input" class="area-std auto-resize" style="min-height:150px;" oninput="UI.autoResize(this); Store.updateRoomState('memory', this.value);"></textarea>
         <button class="btn-main" style="margin-top:8px;" onclick="Store.saveRoomMemory()">기억 수동 저장</button>
-        
+
+        <hr style="border-color:#333; margin:25px 0;">
+
+        <h3 style="color:#f59e0b;">🎣 떡밥 및 과거사 회수</h3>
+        <button class="btn-main" style="background:#ea580c; margin-top:10px;" onclick="App.recoverBait()">🎣 다음 턴에 떡밥 회수 발동</button>
+        <p style="font-size:0.75rem; color:#888; margin-bottom:15px; line-height:1.4;">* 누르면 다음 생성 시 1회에 한하여 전체 과거사/로어(Lore) 데이터가 컨텍스트에 주입되어, 묻혀있던 설정이 현재 대화에 자연스럽게 엮입니다.</p>
+
         <hr style="border-color:#333; margin:25px 0;">
         
         <h3 style="color:#dc2626;">📡 정보망 프리셋</h3>
