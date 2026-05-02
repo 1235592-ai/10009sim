@@ -1,4 +1,9 @@
-/* =========================================
+import os
+
+# Ensure the css directory exists
+os.makedirs('css', exist_ok=True)
+
+css_content = """/* =========================================
    1. CSS Variables & Reset
 ========================================= */
 :root {
@@ -22,7 +27,8 @@
 }
 
 html, body {
-    height: 100%;
+    /* 🔥 변경됨: 100vh -> 100dvh (모바일 브라우저 툴바 대응) */
+    height: 100dvh;
 }
 
 body {
@@ -75,7 +81,7 @@ body {
 
 #global-ai-loader {
     position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
+    top: 0; left: 0; width: 100vw; height: 100dvh;
     background: rgba(0,0,0,0.85);
     z-index: 99999;
     display: flex;
@@ -221,6 +227,8 @@ body {
     background-blend-mode: overlay;
     background-color: rgba(10, 10, 10, 0.85);
     min-height: 0; 
+    /* 🔥 변경됨: 100vh 대신 d-viewport 대응 */
+    height: 100dvh;
 }
 
 header {
@@ -262,6 +270,7 @@ header {
 .message {
     max-width: 90%;
     animation: fadeIn 0.3s ease-out;
+    position: relative;
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -296,13 +305,15 @@ header {
 .speech-name { font-weight: bold; color: var(--accent-color); font-size: 0.85rem; margin-bottom: 4px; }
 .speech-content { font-size: 0.95rem; }
 
+/* 🔥 변경됨: 메시지 컨트롤 레이아웃 개선 */
 .msg-controls {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     margin-top: 6px;
     opacity: 0.3;
     transition: opacity 0.2s;
     justify-content: flex-end;
+    flex-wrap: wrap; /* 좁은 화면 대응 */
 }
 .message:hover .msg-controls { opacity: 1; }
 .msg-controls button {
@@ -313,6 +324,7 @@ header {
     padding: 4px 8px;
     font-size: 0.7rem;
     cursor: pointer;
+    white-space: nowrap;
 }
 .msg-controls button:hover { background: #333; color: #fff; }
 .msg-controls span { font-size: 0.7rem; color: #666; align-self: center; }
@@ -322,13 +334,14 @@ header {
 ========================================= */
 .action-bar-wrapper {
     position: relative;
-    padding: 6px 12px;
+    padding: 8px 12px;
     background: var(--bg-color);
     border-top: 1px solid var(--border-color);
     z-index: 10;
     display: flex;
     align-items: center;
     gap: 12px;
+    justify-content: space-between;
 }
 
 .btn-expand {
@@ -346,10 +359,22 @@ header {
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    flex-shrink: 0;
 }
 .btn-expand.open { transform: rotate(90deg); background: var(--danger); }
 
-/* 🔥 변경됨: 이모지 원색 유지 및 위치 엇나감 해결 */
+/* 🔥 추가됨: 톤 컨트롤 전용 스타일 */
+.tone-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 50px;
+    transition: transform 0.1s;
+}
+.tone-control:active { transform: scale(0.95); }
+.tone-icon { font-size: 1.1rem; margin-bottom: 2px; }
+#tone-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
 .icon-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
 .icon-toggle .icon { font-size: 1.1rem; opacity: 0.4; transition: all 0.2s; filter: none !important; }
 .icon-toggle.active .icon { opacity: 1; text-shadow: 0 0 10px rgba(255,255,255,0.4); }
@@ -395,7 +420,7 @@ input:checked + .slider:before { transform: translateX(16px); background-color: 
    7. Input Area (Textarea)
 ========================================= */
 #input-area {
-    padding: 10px 15px 15px 15px;
+    padding: 0 15px 15px 15px;
     background: transparent;
     display: flex;
     align-items: flex-end;
@@ -515,7 +540,6 @@ input:checked + .slider:before { transform: translateX(16px); background-color: 
 .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
 .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
-/* 🔥 변경됨: 모든 브라우저에서 확실하게 작동하는 max-width 자르기 방식의 점 애니메이션 */
 .anim-dots {
     display: inline-block;
 }
@@ -531,7 +555,9 @@ input:checked + .slider:before { transform: translateX(16px); background-color: 
     100% { max-width: 1.2em; }
 }
 
-/* 🔥 변경됨: 네트워크 로그 창 UI 입체감 및 색상 수정 */
+/* =========================================
+   11. Network & Logs
+========================================= */
 .net-entry { background: #18181b; border-left: 4px solid var(--accent-color); padding: 16px; margin-bottom: 12px; border-radius: 0 8px 8px 0; font-size: 0.95rem; line-height: 1.6; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
 .net-tag { font-size: 0.85rem; font-weight: bold; padding: 4px 10px; border-radius: 6px; background: #27272a; margin-bottom: 10px; display: inline-block; color: var(--accent-color); }
 .net-comment { font-size: 0.9rem; color: #a1a1aa; margin-top: 8px; padding-left: 12px; border-left: 2px solid #3f3f46; }
@@ -547,3 +573,31 @@ input:checked + .slider:before { transform: translateX(16px); background-color: 
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0,0,0,0.4);
 }
+
+/* =========================================
+   12. Mobile Responsive (가독성 패치)
+========================================= */
+@media (max-width: 600px) {
+    .msg-text {
+        font-size: 0.9rem;
+        padding: 10px 12px;
+    }
+    .msg-controls button {
+        padding: 3px 6px;
+        font-size: 0.65rem;
+    }
+    .lobby-header h1 {
+        font-size: 1.2rem;
+    }
+    .action-bar-wrapper {
+        gap: 8px;
+    }
+    #msg-input {
+        font-size: 0.9rem;
+        padding: 10px 12px;
+    }
+}
+"""
+
+with open('css/style.css', 'w', encoding='utf-8') as f:
+    f.write(css_content)
