@@ -138,9 +138,14 @@ window.API = {
     statToDesc: function(val) { if(val >= 90) return "초인"; if(val >= 80) return "전문가"; if(val >= 70) return "우수"; if(val >= 60) return "양호"; if(val >= 40) return "보통"; if(val >= 20) return "미숙"; return "최악"; },
     repToDesc: function(val, left, right) { if(val === 0) return "중립"; const side = val < 0 ? left : right; const absVal = Math.abs(val); if(absVal <= 2) return `${side} 약간`; if(absVal <= 4) return `${side} 강함`; return `${side} 극단적`; },
 
+    // 🔥 프롬프트 아키텍처 전면 재설계 (Lost in the Middle 방어, 조연 다이어트, 톤 분기 적용)
     buildPrompt: function(r, scan) {
-        const w = r.worldInstance; const loc = w.locations[r.currentLocIdx]; let reg = null; if(loc && loc.regionId) reg = w.regions.find(rg => rg.id === loc.regionId);
-        const activeNpcs = r.activeCharIds.map(id => w.characters.find(c=>c.id===id)).filter(c=>c&&c.id!=='sys'); const myChar = w.characters.find(c=>c.id===r.myCharId) || {keyword:'플레이어', desc:''};
+        const w = r.worldInstance; 
+        const loc = w.locations[r.currentLocIdx]; 
+        let reg = null; if(loc && loc.regionId) reg = w.regions.find(rg => rg.id === loc.regionId);
+        
+        const activeNpcs = r.activeCharIds.map(id => w.characters.find(c=>c.id===id)).filter(c=>c&&c.id!=='sys'); 
+        const myChar = w.characters.find(c=>c.id===r.myCharId) || {keyword:'플레이어', desc:''};
         
         const myStats = myChar.stats && myChar.stats.length ? myChar.stats.filter(s=>s.active!==false).map(s => `${s.n}(${this.statToDesc(s.v)})`).join(', ') : ''; 
         const myReps = myChar.reputation && myChar.reputation.length ? myChar.reputation.map(rep => `${rep.leftName||'L'}↔${rep.rightName||'R'}(${this.repToDesc(rep.value, rep.leftName||'L', rep.rightName||'R')})`).join(', ') : ''; 
@@ -189,60 +194,64 @@ window.API = {
             }).filter(x=>x).join('\n');
         }
 
+        // 🔥 조연 설정 다이어트: 이름 + 짧은 요약(50자)만 전송
         let surroundingNpcs = w.characters
             .filter(c => !r.activeCharIds.includes(c.id) && c.id !== r.myCharId && c.id !== 'sys' && !c.isHidden)
             .filter(c => !c.triggerLocId || (loc && c.triggerLocId === loc.id))
-            .map(c => `<PotentialNPC name="${c.keyword}">${c.desc}</PotentialNPC>`)
+            .map(c => {
+                let shortDesc = c.desc ? c.desc.substring(0, 50).replace(/\n/g, ' ') + (c.desc.length > 50 ? '...' : '') : '대기 중인 조연.';
+                return `<PotentialNPC name="${c.keyword}">${shortDesc}</PotentialNPC>`;
+            })
             .join('\n');
 
-        let p = `당신은 장르 소설의 정점을 찍는 베테랑 작가이자 압도적인 몰입감을 선사하는 하드코어 TRPG 마스터입니다. 
-[OOC 절대 금지] 당신은 AI가 아니라 이 세계 그 자체입니다. "AI로서", "저는 ~할 수 없습니다" 등 메타 발언을 절대 금지합니다.
-[⚠️ 인과관계 닻 고정] 아래 <Timeline>에 기재된 과거 사건은 불변의 진실입니다. 이와 모순되거나 양립할 수 없는 새로운 사건을 임의로 날조하지 마십시오.
-
-[세계관 배경] ${w.prompt}
-${gStatus}
-
-[등장 요소 데이터]
-${myBlock}
-${npcBlocks}
-${facBlocks}
-
-[주변 대기 인물군] (조건부 난입 가능)
-${surroundingNpcs}
-
-`;
+        // 1. [상단부] 세계관 및 등장 요소 데이터 배치
+        let p = `[세계관 배경]\n${w.prompt}\n${gStatus}\n
+[등장 요소 데이터]\n${myBlock}\n${npcBlocks}\n${facBlocks}\n
+[주변 대기 인물군] (조건부 난입 가능)\n${surroundingNpcs}\n`;
         
         if(loc) p += `[현재 장소: ${reg?reg.name+' - ':''}${loc.name}]${loc.desc?.trim() ? ' (특징: '+loc.desc.trim()+')' : ''}\n`;
         
+        // 2. [중단부] 타임라인 요약
         let mem = r.memory || ""; 
         const memBlocks = mem.split('[자동 요약]'); 
         let memToSend = memBlocks[0]; 
         if (memBlocks.length > 1) { memToSend += '[자동 요약]' + memBlocks.slice(Math.max(1, memBlocks.length - 2)).join('[자동 요약]'); } 
+        if(memToSend.trim()) p += `\n<Timeline>\n${memToSend.trim()}\n</Timeline>\n`;
         
-        if(memToSend.trim()) p += `<Timeline>\n${memToSend.trim()}\n</Timeline>\n`;
-        
-        const info = []; 
+        // 🔥 떡밥 회수 처리 (Bait Recovery)
+        let baitRule = "";
+        let info = []; 
         w.factions.forEach(f => { if(f.name && scan.includes(f.name) && !activeFactionIds.has(f.id)) info.push(`- 세력 ${f.name}: ${f.desc}`); }); 
-        w.lores.forEach(l => { if(l.triggerLocId && loc && l.triggerLocId !== loc.id) return; if(l.keyword && scan.includes(l.keyword)) info.push(`- 지식 ${l.keyword}: ${l.desc}`); }); 
-        if(info.length) p += `[주변 대기 요소]\n${info.join("\n")}\n`;
         
+        if (r.baitRecoveryNextTurn) {
+            // 버튼 눌렀을 때 1회 한정: 로어 전체 주입 및 강력 지시문 추가
+            w.lores.forEach(l => { info.push(`- [과거사/지식] ${l.keyword}: ${l.desc}`); });
+            baitRule = `\n[🎣 떡밥 회수 발동!] 지금까지의 흐름을 보고 위 [과거사/지식] 중 가장 적절한 떡밥 하나를 골라 자연스럽게 현재 사건과 엮어 회수하라. 억지스럽게 여러 개를 동시에 끌어오지 마라.\n`;
+        } else {
+            // 평소: 스캔된 키워드만 짧게 잘라서 주입
+            w.lores.forEach(l => { 
+                if(l.triggerLocId && loc && l.triggerLocId !== loc.id) return; 
+                if(l.keyword && scan.includes(l.keyword)) {
+                    let shortLore = l.desc ? l.desc.substring(0, 60).replace(/\n/g, ' ') + '...' : '';
+                    info.push(`- 지식 ${l.keyword}: ${shortLore}`); 
+                }
+            }); 
+        }
+
+        if(info.length) p += `\n[주변 대기 요소]\n${info.join("\n")}\n`;
+        p += baitRule;
         if(scan.includes('🎲') || scan.includes('⚔️')) p += `\n*주의: 주사위 판정 결과를 바탕으로 연출하세요.*\n`;
         
+        // 🔥 톤 분기 적용 (페르소나 제어)
+        const tone = r.tone || 'normal';
+        let toneRule = "";
+        if(tone === 'light') toneRule = "건조한 관찰자. 과장과 형용사 사용을 최소화하고, 눈에 보이는 행동과 사실만 담담하게 서술하라.";
+        else if(tone === 'heavy') toneRule = "몰입감 있는 소설가. 허세나 무의미한 수식어를 배제하되, 인물이 처한 물리적/심리적 위기감과 장르적 분위기를 밀도 있게 묘사하라. 단, 소설체 특유의 과대해석 금지.";
+        else toneRule = "절제된 소설가. 상황의 무게에 비례하여 서술하라. 가벼운 일은 가볍게, 무거운 일은 무겁게 완급을 조절하라.";
+
         const isLong = document.getElementById('long-response')?.checked;
-        
-        // 🔥 오타쿠/장르 팬을 위한 궁극의 개연성 및 뽕맛 강제 규칙 추가
-        p += `\n\n[✍️ 마스터 서술 절대 규칙]
-- ⚠️ [대리 묘사 금지] 플레이어(${myChar.keyword})의 감정, 행동, 대사는 단 1%도 대리 서술하지 마십시오. 오직 세계의 반응만 서술합니다.
-- ⚖️ [철저한 인과율과 시스템적 사고] 세계는 치밀한 논리와 인과율로 작동합니다. 플레이어의 안일한 선택이나 낮은 스탯은 억지스러운 행운(데우스 엑스 마키나)으로 무마되지 않으며, 반드시 치명적인 결과(부상, 소외, 배신)로 직결되게 서술하십시오.
-- 💥 [파워 밸런스 절대화] 캐릭터 간의 '스탯' 격차를 묘사에 압도적으로 반영하십시오. 강자는 여유롭고 파괴적인 퍼포먼스를 보이며, 약자는 처절하게 구르거나 무력하게 제압당하는 모습을 주변 환경(파괴되는 지형, 공기의 흐름)과 엮어 시각적으로 증명하십시오 (Show, Don't Tell).
-- 🕵️ [입체적 군상극과 서브텍스트] NPC들은 플레이어를 맹목적으로 돕지 않습니다. 철저히 자신의 소속 세력(Faction)의 이익과 숨겨진 목적(Secret)을 계산하며 득실을 따집니다. 대사 이면(Subtext)에 정치적 줄다리기, 뼈 있는 농담, 은폐된 의도를 숨겨 긴장감을 조성하십시오.
-- 🎭 [개연성 기반 등장] [주변 대기 인물군]은 현재 장소나 문맥상 얽히는 것이 논리적으로 자연스러울 때만 난입시키십시오. 밀실이나 사적인 닫힌 씬(Closed Scene)에서는 억지 개입을 절대 차단하십시오.
-- [명명 규칙] 새로운 인물 창작 시, 세계관에 완벽하게 어울리는 세련된 이름만 사용하십시오. '김철수' 등 작위적이고 촌스러운 기본 이름 절대 금지.
-- [날것의 호흡] 정제된 문장 대신 말줄임표(...), 헛숨 등을 섞어 각 NPC만의 변별력을 살리십시오.
-- [AI 클리셰 금지] "~것이었다", "~듯했다" 같은 진부한 표현과 요약형 마무리를 피하십시오.
-- 🛑 [마무리 규칙] 상황을 요약하거나 질문(~할 것인가?)을 던지지 마십시오. 행동이나 대사 중간에 뚝 끊듯이 클리프행어로 마무리하십시오.
-- [분량] ${isLong ? "**1500자 이상 아주 길고 구체적으로, 장르적 뽕맛을 채워 서술할 것.**" : "**500자 내외로 밀도 있게 서술할 것.**"}`; 
-        
+        const lengthRule = isLong ? "1500자 이상 아주 길고 구체적으로 서술할 것." : "500자 내외로 밀도 있게 서술할 것.";
+
         let ruleLines = [];
         if(Store.state.safety.violence) ruleLines.push("신체 훼손 및 유혈 묘사 금지.");
         if(Store.state.safety.discrimination) ruleLines.push("혐오 멸칭 및 차별적 표현 절대 금지.");
@@ -250,12 +259,37 @@ ${surroundingNpcs}
         if(Store.state.safety.abuse) ruleLines.push("가학적 고문 및 학대 묘사 즉시 중단.");
         if(Store.state.safety.selfharm) ruleLines.push("자해 및 극단적 선택 언급 금지.");
         if(Store.state.safety.drugs) ruleLines.push("불법 약물 및 만취 상태 묘사 불가.");
-        if(Store.state.safety.marysue) ruleLines.push("주인공 띄워주기 금지. NPC는 실력으로 증명하기 전까지 플레이어를 무시하십시오.");
+        if(Store.state.safety.marysue) ruleLines.push("주인공 띄워주기 금지. NPC는 실력으로 증명하기 전까지 플레이어를 무시할 것.");
         if(Store.state.safety.obsession) ruleLines.push("감금, 스토킹 등 범죄적 집착 묘사 불가.");
         if(Store.state.safety.gore) ruleLines.push("고어 및 기괴한 묘사 금지.");
-        if(Store.state.safety.romance) ruleLines.push("NPC는 주인공에게 성애적 감정을 느끼지 않으며 철저히 비즈니스 파트너로 대합니다.");
+        if(Store.state.safety.romance) ruleLines.push("NPC는 주인공에게 성애적 감정을 느끼지 않으며 철저히 비즈니스 파트너로 대할 것.");
 
-        if(ruleLines.length > 0) p += `\n\n[통제 규칙]\n- ` + ruleLines.join(`\n- `);
+        // 3. [하단부] 잃어버리면 안 되는 핵심 절대 규칙 배치
+        p += `\n\n[✍️ 서술 규칙]
+- 서술 톤: ${toneRule}
+- 분량: ${lengthRule}
+- 철저한 인과율: 세계는 치밀한 논리로 작동한다. 플레이어의 안일한 선택이나 낮은 스탯은 억지 행운으로 무마되지 않으며, 치명적인 결과로 직결된다.
+- 파워 밸런스 절대화: 캐릭터 간의 스탯 격차를 환경 묘사와 연출로 압도적으로 증명하라 (Show, Don't Tell).
+- 서브텍스트: NPC들은 주인공을 맹목적으로 돕지 않으며, 각자의 소속(Faction)과 비밀(Secret)에 따라 득실을 계산한다. 대사 이면에 의도를 숨겨라.
+
+[완급 및 클리셰 통제 규칙]
+- 완급 조절: 플레이어의 일상적이고 작은 행동에 거대 서사나 과거사를 억지로 엮거나 과대해석하지 마라.
+- 금지 표현: "마침내", "그 순간", "알 수 없는 기류", "무거운 침묵이 내려앉았다", "~할 수밖에 없었다", "~것이었다", "~듯했다" 등의 진부한 표현 사용을 절대 금지한다.
+
+[통제 규칙 (안전 검열)]
+${ruleLines.length > 0 ? "- " + ruleLines.join('\n- ') : "- 검열 없음."}
+
+[🚨 인칭 및 시점 (강제)]
+- 모든 서술은 [3인칭 관찰자 시점]을 엄격히 유지하라.
+- 플레이어는 반드시 이름(${myChar.keyword})으로만 지칭하라. 
+- 문장의 주어 자리에 '나는', '너는', '당신은'이 오면 즉시 생성에 실패한 것으로 간주한다.
+- ⚠️ 대리 묘사 절대 금지: 플레이어(${myChar.keyword})의 행동, 감정, 대사는 단 1%도 대리 서술하지 마라. NPC의 반응과 환경 변화만 묘사하라.
+- 🛑 마무리 규칙: 서술의 마지막을 플레이어에게 질문하는 형태(예: '어떻게 할 것인가?')로 끝맺지 마라. 상황 묘사나 NPC 대사로만 턴을 자연스럽게 종료하라.
+
+[출력 포맷 (대사)]
+- 모든 대사는 반드시 「**캐릭터명**: "대사내용"」 형식으로 작성하라. 화자 표기 없이 큰따옴표만 쓴 대사는 엄격히 금지한다.
+- (출력 예시) **${myChar.keyword}**: "여기 있었군."`;
+
         return p;
     },
 
