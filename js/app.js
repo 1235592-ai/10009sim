@@ -191,7 +191,6 @@ window.App = {
         }
     },
 
-    // 🔥 캐릭터 자동 연성 실행 로직 추가
     runCharGenerator: async function() {
         if(!Store.state.apiKey) return alert("설정 탭에서 API 키를 설정해주세요.");
         const w = Store.getTargetWorld();
@@ -255,8 +254,21 @@ window.App = {
         }
     },
 
-    enterRoom: function(id) { Store.state.activeRoomId = id; const r = Store.getActiveRoom(); r.lastUpdated = Date.now(); document.getElementById('lobby-container').style.display = 'none'; document.getElementById('game-container').style.display = 'flex'; history.pushState({ page: 'room' }, ""); this.loadActiveRoom(); Store.forceSave(); },
+    enterRoom: function(id) { 
+        Store.state.activeRoomId = id; 
+        const r = Store.getActiveRoom(); 
+        if(!r.transientCharIds) r.transientCharIds = {}; // 조연 수명 객체 초기화 보장
+        r.lastUpdated = Date.now(); 
+        document.getElementById('lobby-container').style.display = 'none'; 
+        document.getElementById('game-container').style.display = 'flex'; 
+        history.pushState({ page: 'room' }, ""); 
+        this.loadActiveRoom(); 
+        Store.forceSave(); 
+        if (window.UI) UI.syncToneUI(); // 방에 진입할 때 톤 UI 갱신
+    },
+    
     exitToLobby: function() { if(this.isGenerating) return; history.back(); },
+    
     editWorldTemplate: function(id) { Store.state.activeRoomId = null; Store.state.activeWorldId = id; UI.togglePanel('world-panel'); },
 
     loadActiveRoom: function(preserveScroll = false) {
@@ -283,6 +295,15 @@ window.App = {
         this.runAI();
     },
 
+    // 🔥 떡밥 회수 플래그 토글
+    recoverBait: function() {
+        const r = Store.getActiveRoom();
+        if(!r) return;
+        r.baitRecoveryNextTurn = true;
+        Store.forceSave();
+        UI.showToast("🎣 다음 턴 서술 시 과거사/떡밥을 회수합니다!");
+    },
+
     runAI: async function(isRegen=false, idx=null) {
         if(this.isGenerating) return; this.isGenerating = true; document.getElementById('action-btn').disabled = true;
         const r = Store.getActiveRoom(); const tIdx = isRegen ? idx : r.history.length;
@@ -294,19 +315,93 @@ window.App = {
         textEl.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>'; UI.scrollToBottom(true);
 
         const scan = r.history.slice(-5).map(m => m.variants[m.currentVariant]).join(" ");
-        let contents = r.history.slice(Math.max(0, tIdx - 15), tIdx).filter(m => m.variants[m.currentVariant].trim() !== "").map(m => ({ role: m.role==='ai'?'model':'user', parts:[{text: m.variants[m.currentVariant]}] }));
+        
+        // 🔥 컨텍스트 슬라이싱 길이 15턴 -> 25턴으로 확장
+        let contents = r.history.slice(Math.max(0, tIdx - 25), tIdx).filter(m => m.variants[m.currentVariant].trim() !== "").map(m => ({ role: m.role==='ai'?'model':'user', parts:[{text: m.variants[m.currentVariant]}] }));
         if(contents.length === 0) contents = [{role:'user', parts:[{text:'(시작해.)'}]}];
         const sysPrompt = API.buildPrompt(r, scan);
 
         let fullText = "";
-        try { await API.streamGemini(contents, sysPrompt, (chunk) => { fullText += chunk; msgObj.variants[msgObj.currentVariant] = fullText; textEl.innerHTML = UI.formatMsg(fullText, 'ai'); }); } 
-        catch(e) { if(!fullText.trim()) { msgObj.variants[msgObj.currentVariant] = "[오류] " + e.message; textEl.innerHTML = UI.formatMsg(msgObj.variants[msgObj.currentVariant], 'ai'); } } 
-        finally { msgDiv.appendChild(UI.createCtrls(tIdx)); if(r.history.length > 0 && r.history.length % 20 === 0) this.triggerAutoSummary(); this.isGenerating = false; document.getElementById('action-btn').disabled = false; UI.updateActionBtn(); Store.forceSave(); UI.scrollToBottom(true); }
+        try { 
+            await API.streamGemini(contents, sysPrompt, (chunk) => { 
+                fullText += chunk; msgObj.variants[msgObj.currentVariant] = fullText; textEl.innerHTML = UI.formatMsg(fullText, 'ai'); 
+            }); 
+        } 
+        catch(e) { 
+            if(!fullText.trim()) { msgObj.variants[msgObj.currentVariant] = "[오류] " + e.message; textEl.innerHTML = UI.formatMsg(msgObj.variants[msgObj.currentVariant], 'ai'); } 
+        } 
+        finally { 
+            msgDiv.appendChild(UI.createCtrls(tIdx)); 
+            
+            // 🔥 조연 생명주기(Transient Char) 관리 시작
+            if (!r.transientCharIds) r.transientCharIds = {};
+            const uMsg = tIdx > 0 ? r.history[tIdx-1].variants[r.history[tIdx-1].currentVariant] : "";
+            const recentText = uMsg + " " + fullText;
+
+            for (let cid in r.transientCharIds) { r.transientCharIds[cid]++; } // 턴 수 증가
+
+            const w = r.worldInstance;
+            w.characters.forEach(c => {
+                if (c.id !== 'sys' && c.id !== r.myCharId && !r.activeCharIds.includes(c.id) && !c.isHidden) {
+                    if (recentText.includes(c.keyword)) {
+                        r.transientCharIds[c.id] = 0; // 언급된 조연 편입 및 카운트 리셋
+                    }
+                }
+            });
+
+            for (let cid in r.transientCharIds) {
+                const c = w.characters.find(x => x.id === cid);
+                if (r.transientCharIds[cid] >= 2 && (!c || !recentText.includes(c.keyword))) {
+                    delete r.transientCharIds[cid]; // 2턴 초과 생존 실패 시 퇴장
+                }
+            }
+            // 🔥 조연 관리 끝
+
+            // 떡밥 회수 플래그 리셋 (1회성)
+            if (r.baitRecoveryNextTurn) {
+                r.baitRecoveryNextTurn = false;
+                UI.showToast("🎣 떡밥 회수가 완료되었습니다.");
+            }
+
+            if(r.history.length > 0 && r.history.length % 20 === 0) this.triggerAutoSummary(); 
+            this.isGenerating = false; 
+            document.getElementById('action-btn').disabled = false; 
+            UI.updateActionBtn(); 
+            Store.forceSave(); 
+            UI.scrollToBottom(true); 
+        }
     },
 
     triggerAutoSummary: async function() {
         const r = Store.getActiveRoom(); const histText = r.history.slice(-20).map(m=>m.variants[m.currentVariant]).join("\n");
-        try { const text = await API.callGemini([{role:'user', parts:[{text: `다음 대화를 3줄로 요약해:\n\n${histText}`}]}], r.worldInstance.prompt); let mem = r.memory || ""; mem += (mem ? "\n\n" : "") + "[자동 요약]\n" + text; const blocks = mem.split('[자동 요약]'); if(blocks.length > 4) mem = blocks[0] + '[자동 요약]' + blocks.slice(-3).join('[자동 요약]'); r.memory = mem; document.getElementById('room-memory-input').value = r.memory; Store.updateRoomState('memory', r.memory); UI.showToast("✨ 기억이 요약 저장되었습니다."); } catch(e) {}
+        try { 
+            // 🔥 요약 프롬프트 강화 (구조화)
+            const sysPrompt = `다음 대화에서 아래 항목을 추출해 구조화된 기록으로 저장해라.
+1. 인물별 변화 (감정, 관계, 입장)
+2. 새로 드러난 사실/정보
+3. 미해결 떡밥/약속/예고된 사건
+간결한 개조식으로 작성할 것.`;
+
+            const text = await API.callGemini([{role:'user', parts:[{text: `[대화 내역]\n\n${histText}`}]}], sysPrompt); 
+            
+            let mem = r.memory || ""; 
+            mem += (mem ? "\n\n" : "") + "[자동 요약]\n" + text; 
+            const blocks = mem.split('[자동 요약]'); 
+            if(blocks.length > 4) mem = blocks[0] + '[자동 요약]' + blocks.slice(-3).join('[자동 요약]'); 
+            
+            r.memory = mem; 
+            document.getElementById('room-memory-input').value = r.memory; 
+            Store.updateRoomState('memory', r.memory); 
+            
+            // 🔥 시각적 피드백
+            UI.showToast("✨ 상황 요약이 구조화되어 기억에 저장되었습니다."); 
+            const memArea = document.getElementById('room-memory-input');
+            if(memArea) {
+                memArea.style.transition = 'box-shadow 0.3s';
+                memArea.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.8)';
+                setTimeout(() => memArea.style.boxShadow = 'none', 1000);
+            }
+        } catch(e) {}
     },
 
     processStatUpdate: async function(idx) {
@@ -355,7 +450,27 @@ window.App = {
     removeRoomTag: function(rId, tId, e) { e.stopPropagation(); const r = Store.state.rooms.find(x => x.id === rId); r.tagIds = r.tagIds.filter(id => id !== tId); Store.forceSave(); UI.renderScenarioList(); },
     editRoomInfo: function(id) { document.getElementById('edit-room-id').value = id; document.getElementById('edit-room-name').value = Store.state.rooms.find(x => x.id === id).name; UI.openModal('edit-room-modal'); },
     saveRoomInfo: function() { const r = Store.state.rooms.find(x => x.id === document.getElementById('edit-room-id').value); if(r) { r.name = document.getElementById('edit-room-name').value.trim() || '시나리오'; Store.forceSave(); UI.renderScenarioList(); } UI.closeModal('edit-room-modal'); },
-    cloneRoom: function(id) { const t = Store.state.rooms.find(r => r.id === id); if(confirm("복제하시겠습니까? (대화는 초기화됨)")) { const nr = JSON.parse(JSON.stringify(t)); nr.id = 'r_'+Date.now(); nr.name = t.name + " (새 회차)"; nr.history = []; nr.memory = ''; nr.networkArchive = ''; nr.lastUpdated = Date.now(); const idMap = this.remapWorldIds(nr.worldInstance); if(idMap[nr.myCharId]) nr.myCharId = idMap[nr.myCharId]; nr.activeCharIds = nr.activeCharIds.map(cid => idMap[cid] || cid); Store.state.rooms.unshift(nr); Store.forceSave(); UI.renderScenarioList(); UI.showToast("복제 완료"); } },
+    cloneRoom: function(id) { 
+        const t = Store.state.rooms.find(r => r.id === id); 
+        if(confirm("복제하시겠습니까? (대화는 초기화됨)")) { 
+            const nr = JSON.parse(JSON.stringify(t)); 
+            nr.id = 'r_'+Date.now(); 
+            nr.name = t.name + " (새 회차)"; 
+            nr.history = []; 
+            nr.memory = ''; 
+            nr.networkArchive = ''; 
+            nr.transientCharIds = {}; // 플래그 초기화
+            nr.baitRecoveryNextTurn = false;
+            nr.lastUpdated = Date.now(); 
+            const idMap = this.remapWorldIds(nr.worldInstance); 
+            if(idMap[nr.myCharId]) nr.myCharId = idMap[nr.myCharId]; 
+            nr.activeCharIds = nr.activeCharIds.map(cid => idMap[cid] || cid); 
+            Store.state.rooms.unshift(nr); 
+            Store.forceSave(); 
+            UI.renderScenarioList(); 
+            UI.showToast("복제 완료"); 
+        } 
+    },
     
     deleteRoom: function(id) { 
         if(confirm("삭제하시겠습니까?")) { 
@@ -374,7 +489,24 @@ window.App = {
         this.remapWorldIds(worldClone); 
         let myC = worldClone.characters.find(c => c.id !== 'sys' && !c.isHidden); 
         if(!myC) { myC = {id:'c_'+Date.now(), keyword:'플레이어', desc:'주인공.', secret:'', stats:[{n:'체력', v:50, active:true}], reputation:[], factionIds:[], triggerLocId:'', isHidden:false}; worldClone.characters.push(myC); } 
-        Store.state.rooms.unshift({ id: 'r_'+Date.now(), name: document.getElementById('new-room-name').value.trim() || '새 시나리오', lastUpdated: Date.now(), worldInstance: worldClone, myCharId: myC.id, activeCharIds: ['sys'], history: [], memory: '', globalStatus: '', currentLocIdx: -1, networkArchive: '', tagIds: [] }); 
+        
+        Store.state.rooms.unshift({ 
+            id: 'r_'+Date.now(), 
+            name: document.getElementById('new-room-name').value.trim() || '새 시나리오', 
+            lastUpdated: Date.now(), 
+            worldInstance: worldClone, 
+            myCharId: myC.id, 
+            activeCharIds: ['sys'], 
+            history: [], 
+            memory: '', 
+            globalStatus: '', 
+            currentLocIdx: -1, 
+            networkArchive: '', 
+            tagIds: [],
+            transientCharIds: {}, // 플래그 초기화
+            baitRecoveryNextTurn: false
+        }); 
+        
         Store.forceSave(); UI.renderScenarioList(); UI.closeModal('new-room-modal'); UI.showToast("생성 완료"); 
     },
     
