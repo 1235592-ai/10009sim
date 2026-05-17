@@ -7,6 +7,7 @@ css_content = """/* =========================================
    1. CSS Variables & Reset
 ========================================= */
 :root {
+    color-scheme: dark;
     --bg-color: #0a0a0a;
     --panel-bg: #141414;
     --border-color: #333;
