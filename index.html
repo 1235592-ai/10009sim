@@ -140,7 +140,7 @@
                 
                 <div class="icon-toggle tone-control" id="toggle-tone" onclick="UI.cycleTone()" title="서술 톤 변경 (Light/Normal/Heavy)" style="cursor:pointer;">
                     <span class="icon tone-icon">🎭</span>
-                    <span id="tone-label" style="font-size: 0.75rem; color: #a1a1aa; font-weight:bold;">Normal</span>
+                    <span id="tone-label" style="font-weight:bold;">Normal</span>
                 </div>
 
                 <label class="icon-toggle" id="toggle-long">
@@ -293,7 +293,7 @@
 
     <div id="new-room-modal" class="modal-base"><div class="modal-header"><h3>🎭 새 시나리오</h3><button class="close-btn-new" onclick="UI.closeModal('new-room-modal')">✕</button></div><select id="new-room-world-sel" class="select-std"></select><input type="text" id="new-room-name" class="input-std" placeholder="제목"><button class="btn-play" onclick="App.createNewRoom()">생성</button></div>
     <div id="edit-room-modal" class="modal-base"><div class="modal-header"><h3>✏️ 수정</h3><button class="close-btn-new" onclick="UI.closeModal('edit-room-modal')">✕</button></div><input type="hidden" id="edit-room-id"><input type="text" id="edit-room-name" class="input-std"><button class="btn-main" style="margin-top:10px;" onclick="App.saveRoomInfo()">저장</button></div>
-    <div id="import-modal" class="modal-base"><div class="modal-header"><h3>📥 인물 불러오기</h3><button class="close-btn-new" onclick="UI.closeModal('import-modal')">✕</button></div><select id="import-world-sel" class="select-std" onchange="UI.renderImportChars()"></select><div id="import-char-list" style="margin-top:10px; max-height:200px; overflow-y:auto;"></div></div>
+    <div id="import-modal" class="modal-base"><div class="modal-header"><h3>📥 인물 불러오기</h3><button class=\"close-btn-new\" onclick="UI.closeModal('import-modal')\">✕</button></div><select id="import-world-sel" class="select-std" onchange="UI.renderImportChars()"></select><div id="import-char-list" style="margin-top:10px; max-height:200px; overflow-y:auto;"></div></div>
     <div id="tag-manage-modal" class="modal-base"><div class="modal-header"><h3>🏷️ 태그 관리</h3><button class="close-btn-new" onclick="UI.closeModal('tag-manage-modal')">✕</button></div><div id="tag-manage-list" style="max-height:250px; overflow-y:auto; margin-bottom:10px;"></div></div>
 
     <script src="js/store.js"></script>
