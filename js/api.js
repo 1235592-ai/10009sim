@@ -138,7 +138,6 @@ window.API = {
     statToDesc: function(val) { if(val >= 90) return "초인"; if(val >= 80) return "전문가"; if(val >= 70) return "우수"; if(val >= 60) return "양호"; if(val >= 40) return "보통"; if(val >= 20) return "미숙"; return "최악"; },
     repToDesc: function(val, left, right) { if(val === 0) return "중립"; const side = val < 0 ? left : right; const absVal = Math.abs(val); if(absVal <= 2) return `${side} 약간`; if(absVal <= 4) return `${side} 강함`; return `${side} 극단적`; },
 
-    // 🔥 프롬프트 아키텍처 전면 재설계 (Lost in the Middle 방어, 조연 다이어트, 톤 분기 적용)
     buildPrompt: function(r, scan) {
         const w = r.worldInstance; 
         const loc = w.locations[r.currentLocIdx]; 
@@ -166,8 +165,24 @@ window.API = {
         myBlock += `</MyCharacter>`;
 
         let npcBlocks = "";
-        if(activeNpcs.length > 0) { 
-            npcBlocks = activeNpcs.map(c => { 
+        let fullDataNpcs = [...activeNpcs];
+        let surroundingNpcsList = [];
+
+        w.characters.forEach(c => {
+            if(c.id === r.myCharId || c.id === 'sys' || c.isHidden) return;
+            if(r.activeCharIds.includes(c.id)) return;
+
+            if(r.transientCharIds && r.transientCharIds[c.id] !== undefined) {
+                fullDataNpcs.push(c);
+            } else {
+                if(!c.triggerLocId || (loc && c.triggerLocId === loc.id)) {
+                    surroundingNpcsList.push(c);
+                }
+            }
+        });
+
+        if(fullDataNpcs.length > 0) { 
+            npcBlocks = fullDataNpcs.map(c => { 
                 if (c.factionIds) c.factionIds.forEach(fid => activeFactionIds.add(fid));
                 const sText = c.stats && c.stats.length ? c.stats.filter(s=>s.active!==false).map(s=>`${s.n}(${this.statToDesc(s.v)})`).join(', ') : ''; 
                 const fNames = c.factionIds ? c.factionIds.map(fid => w.factions.find(f=>f.id===fid)?.name).filter(n=>n) : [];
@@ -194,41 +209,33 @@ window.API = {
             }).filter(x=>x).join('\n');
         }
 
-        // 🔥 조연 설정 다이어트: 이름 + 짧은 요약(50자)만 전송
-        let surroundingNpcs = w.characters
-            .filter(c => !r.activeCharIds.includes(c.id) && c.id !== r.myCharId && c.id !== 'sys' && !c.isHidden)
-            .filter(c => !c.triggerLocId || (loc && c.triggerLocId === loc.id))
+        let surroundingNpcs = surroundingNpcsList
             .map(c => {
                 let shortDesc = c.desc ? c.desc.substring(0, 50).replace(/\n/g, ' ') + (c.desc.length > 50 ? '...' : '') : '대기 중인 조연.';
                 return `<PotentialNPC name="${c.keyword}">${shortDesc}</PotentialNPC>`;
             })
             .join('\n');
 
-        // 1. [상단부] 세계관 및 등장 요소 데이터 배치
         let p = `[세계관 배경]\n${w.prompt}\n${gStatus}\n
 [등장 요소 데이터]\n${myBlock}\n${npcBlocks}\n${facBlocks}\n
 [주변 대기 인물군] (조건부 난입 가능)\n${surroundingNpcs}\n`;
         
         if(loc) p += `[현재 장소: ${reg?reg.name+' - ':''}${loc.name}]${loc.desc?.trim() ? ' (특징: '+loc.desc.trim()+')' : ''}\n`;
         
-        // 2. [중단부] 타임라인 요약
         let mem = r.memory || ""; 
         const memBlocks = mem.split('[자동 요약]'); 
         let memToSend = memBlocks[0]; 
         if (memBlocks.length > 1) { memToSend += '[자동 요약]' + memBlocks.slice(Math.max(1, memBlocks.length - 2)).join('[자동 요약]'); } 
         if(memToSend.trim()) p += `\n<Timeline>\n${memToSend.trim()}\n</Timeline>\n`;
         
-        // 🔥 떡밥 회수 처리 (Bait Recovery)
         let baitRule = "";
         let info = []; 
         w.factions.forEach(f => { if(f.name && scan.includes(f.name) && !activeFactionIds.has(f.id)) info.push(`- 세력 ${f.name}: ${f.desc}`); }); 
         
         if (r.baitRecoveryNextTurn) {
-            // 버튼 눌렀을 때 1회 한정: 로어 전체 주입 및 강력 지시문 추가
             w.lores.forEach(l => { info.push(`- [과거사/지식] ${l.keyword}: ${l.desc}`); });
             baitRule = `\n[🎣 떡밥 회수 발동!] 지금까지의 흐름을 보고 위 [과거사/지식] 중 가장 적절한 떡밥 하나를 골라 자연스럽게 현재 사건과 엮어 회수하라. 억지스럽게 여러 개를 동시에 끌어오지 마라.\n`;
         } else {
-            // 평소: 스캔된 키워드만 짧게 잘라서 주입
             w.lores.forEach(l => { 
                 if(l.triggerLocId && loc && l.triggerLocId !== loc.id) return; 
                 if(l.keyword && scan.includes(l.keyword)) {
@@ -242,12 +249,22 @@ window.API = {
         p += baitRule;
         if(scan.includes('🎲') || scan.includes('⚔️')) p += `\n*주의: 주사위 판정 결과를 바탕으로 연출하세요.*\n`;
         
-        // 🔥 톤 분기 적용 (페르소나 제어)
         const tone = r.tone || 'normal';
         let toneRule = "";
-        if(tone === 'light') toneRule = "건조한 관찰자. 과장과 형용사 사용을 최소화하고, 눈에 보이는 행동과 사실만 담담하게 서술하라.";
-        else if(tone === 'heavy') toneRule = "몰입감 있는 소설가. 허세나 무의미한 수식어를 배제하되, 인물이 처한 물리적/심리적 위기감과 장르적 분위기를 밀도 있게 묘사하라. 단, 소설체 특유의 과대해석 금지.";
-        else toneRule = "절제된 소설가. 상황의 무게에 비례하여 서술하라. 가벼운 일은 가볍게, 무거운 일은 무겁게 완급을 조절하라.";
+        let dramaticRule = ""; 
+
+        if(tone === 'light') {
+            toneRule = "건조한 관찰자. 과장과 형용사 사용을 최소화하고, 눈에 보이는 행동과 사실만 담담하게 서술하라.";
+            dramaticRule = "- 일상적 완급 조절: 가벼운 행동에 거대 서사나 치명적인 인과를 억지로 엮지 마라. 캐릭터 간의 소소한 대화와 반응에 집중하라.";
+        }
+        else if(tone === 'heavy') {
+            toneRule = "몰입감 있는 소설가. 허세나 무의미한 수식어를 배제하되, 인물이 처한 물리적/심리적 위기감과 장르적 분위기를 밀도 있게 묘사하라. 단, 소설체 특유의 과대해석 금지.";
+            dramaticRule = `- 철저한 인과율: 플레이어의 안일한 선택이나 낮은 스탯은 치명적인 결과(부상, 소외)로 직결되게 서술하라.\n- 파워 밸런스 절대화: 캐릭터 간의 스탯 격차를 환경 묘사와 연출로 압도적으로 증명하라 (Show, Don't Tell).`;
+        }
+        else {
+            toneRule = "절제된 소설가. 상황의 무게에 비례하여 서술하라. 가벼운 일은 가볍게, 무거운 일은 무겁게 완급을 조절하라.";
+            dramaticRule = "- 철저한 인과율: 세계는 치밀한 논리로 작동한다. 억지 행운을 배제하고 인과에 맞는 결과를 도출하라.";
+        }
 
         const isLong = document.getElementById('long-response')?.checked;
         const lengthRule = isLong ? "1500자 이상 아주 길고 구체적으로 서술할 것." : "500자 내외로 밀도 있게 서술할 것.";
@@ -264,12 +281,10 @@ window.API = {
         if(Store.state.safety.gore) ruleLines.push("고어 및 기괴한 묘사 금지.");
         if(Store.state.safety.romance) ruleLines.push("NPC는 주인공에게 성애적 감정을 느끼지 않으며 철저히 비즈니스 파트너로 대할 것.");
 
-        // 3. [하단부] 잃어버리면 안 되는 핵심 절대 규칙 배치
         p += `\n\n[✍️ 서술 규칙]
 - 서술 톤: ${toneRule}
 - 분량: ${lengthRule}
-- 철저한 인과율: 세계는 치밀한 논리로 작동한다. 플레이어의 안일한 선택이나 낮은 스탯은 억지 행운으로 무마되지 않으며, 치명적인 결과로 직결된다.
-- 파워 밸런스 절대화: 캐릭터 간의 스탯 격차를 환경 묘사와 연출로 압도적으로 증명하라 (Show, Don't Tell).
+${dramaticRule}
 - 서브텍스트: NPC들은 주인공을 맹목적으로 돕지 않으며, 각자의 소속(Faction)과 비밀(Secret)에 따라 득실을 계산한다. 대사 이면에 의도를 숨겨라.
 
 [완급 및 클리셰 통제 규칙]
