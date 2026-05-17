@@ -101,7 +101,6 @@ window.UI = {
         if(chk.checked) wrap.classList.add('active'); else wrap.classList.remove('active');
     },
 
-    // 🔥 추가됨: 톤 슬라이더 사이클 및 UI 갱신 함수
     cycleTone: function() {
         const tones = ['light', 'normal', 'heavy'];
         const r = Store.state.activeRoomId ? Store.getActiveRoom() : null;
@@ -552,7 +551,6 @@ window.UI = {
         return d;
     },
     
-    // 🔥 변경됨: 마크다운 듀얼 정규식 적용 (볼드체 우선 매칭)
     formatMsg: function(t, role) { 
         if(role === 'ai') {
             return t.split('\n').map(line => { 
@@ -560,22 +558,18 @@ window.UI = {
                 let m = line.match(/^\s*\*\*(.+?)\*\*\s*:\s*"(.+)"\s*$/);
                 if (m) return `<div class="speech-bubble"><div class="speech-name">${this.esc(m[1].trim())}</div><div class="speech-content">"${this.esc(m[2])}"</div></div>`; 
                 
-                // 1.5순위: **이름**: 대사 (따옴표 없이 볼드만 적용된 경우)
+                // 1.5순위: **이름**: 대사
                 m = line.match(/^\s*\*\*(.+?)\*\*\s*:\s*(.+)$/);
                 if (m) return `<div class="speech-bubble"><div class="speech-name">${this.esc(m[1].trim())}</div><div class="speech-content">"${this.esc(m[2].replace(/^"|"$/g, ''))}"</div></div>`; 
 
-                // 2순위: 이름: "대사" (기존 패턴 + 따옴표 강제 매칭)
+                // 2순위: 이름: "대사"
                 m = line.match(/^\s*([가-힣a-zA-Z][^:]{0,19})\s*:\s*"(.+)"\s*$/);
                 if (m) return `<div class="speech-bubble"><div class="speech-name">${this.esc(m[1].trim())}</div><div class="speech-content">"${this.esc(m[2])}"</div></div>`; 
 
-                // 3순위: 기존 Fallback 로직 (따옴표 매칭)
+                // 3순위: 기존 Fallback 로직
                 m = line.match(/^\s*([^\(\[\~:<*]{1,20})\s*:\s*"([^"]+)"\s*$/);
                 if (m) return `<div class="speech-bubble"><div class="speech-name">${this.esc(m[1].trim())}</div><div class="speech-content">"${this.esc(m[2])}"</div></div>`;
 
-                // 4순위: 기존 최후 Fallback 로직 (콜론만 매칭)
-                m = line.match(/^\s*([^\(\[\~:<*]{1,20})\s*:\s*(.+)$/);
-                if (m) return `<div class="speech-bubble"><div class="speech-name">${this.esc(m[1].trim())}</div><div class="speech-content">"${this.esc(m[2].replace(/^"|"$/g, ''))}"</div></div>`; 
-                
                 let res = this.esc(line);
                 res = res.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>"); 
                 res = res.replace(/\*(.*?)\*/g, "<em>$1</em>");
@@ -590,7 +584,6 @@ window.UI = {
         return res.replace(/\n/g, "<br>"); 
     },
     
-    // 🔥 변경됨: 메시지 컨트롤 UI 개선 (이모지 버튼화 및 더보기 메뉴 분리)
     createCtrls: function(idx) {
         const r = Store.getActiveRoom(); const m = r.history[idx]; const c = document.createElement('div'); c.className = 'msg-controls'; 
         const isLastAi = idx === r.history.findLastIndex(msg => msg.role === 'ai');
